@@ -307,7 +307,7 @@ class Configuration extends React.Component {
             <div className={classes.root}>
                 <div className={classes.titleWrapper}>
                     <Typography variant='h4' align='left' className={classes.mainTitle}>
-                        Configuration
+                        <FormattedMessage defaultMessage='Configuration' />
                     </Typography>
                 </div>
                 <ApiContext.Consumer>
@@ -318,14 +318,16 @@ class Configuration extends React.Component {
                                     <Typography component='p' variant='body1'>
                                         <TextField
                                             id='outlined-multiline-flexible'
-                                            label='Description'
+                                            label={<FormattedMessage defaultMessage='Description' />}
                                             multiline
                                             rowsMax='4'
                                             value={description || api.description}
                                             onChange={this.handleChange('description')}
                                             className={classes.descriptionTextField}
                                             margin='normal'
-                                            helperText='Provide a brief description about the API'
+                                            helperText={<FormattedMessage
+                                                defaultMessage='Provide a brief description about the API'
+                                            />}
                                             variant='outlined'
                                         />
                                     </Typography>
@@ -336,21 +338,21 @@ class Configuration extends React.Component {
                                         </div>
                                         <div className={classes.rightDataColum}>
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Context
+                                                <FormattedMessage defaultMessage='Context' />
                                             </Typography>
                                             <Typography component='p' variant='body1'>
                                                 {api.context && <React.Fragment>{api.context}</React.Fragment>}
                                             </Typography>
                                             {/* Version */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Version
+                                                <FormattedMessage defaultMessage='Version' />
                                             </Typography>
                                             <Typography component='p' variant='body1'>
                                                 {api.version && <React.Fragment>{api.version}</React.Fragment>}
                                             </Typography>
                                             {/* Default Version */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Default Version
+                                                <FormattedMessage defaultMessage='Default Version' />
                                                 <Tooltip
                                                     placement='top'
                                                     classes={{
@@ -359,6 +361,7 @@ class Configuration extends React.Component {
                                                     disableHoverListener
                                                     title={
                                                         <React.Fragment>
+                                                            <FormattedMessage defaultMessage='
                                                             Marks one API version in a group as the default so that it
                                                             can be invoked without specifying the version number in the
                                                             URL. For example, if you mark http://host:port/youtube/2.0
@@ -366,7 +369,8 @@ class Configuration extends React.Component {
                                                             http://host:port/youtube/ are automatically routed to
                                                             version 2.0. If you mark an unpublished API as the default,
                                                             the previous default published API will still be used as the
-                                                            default until the new default API is published.
+                                                            default until the new default API is published.'
+                                                            />
                                                         </React.Fragment>
                                                     }
                                                 >
@@ -385,13 +389,21 @@ class Configuration extends React.Component {
                                                     )}
                                                     onChange={this.handleChange('isDefaultVersion')}
                                                 >
-                                                    <FormControlLabel value='yes' control={<Radio />} label='Yes' />
-                                                    <FormControlLabel value='no' control={<Radio />} label='No' />
+                                                    <FormControlLabel
+                                                        value='yes'
+                                                        control={<Radio />}
+                                                        label={<FormattedMessage defaultMessage='Yes' />}
+                                                    />
+                                                    <FormControlLabel
+                                                        value='no'
+                                                        control={<Radio />}
+                                                        label={<FormattedMessage defaultMessage='No' />}
+                                                    />
                                                 </RadioGroup>
                                             </Typography>
                                             {/* Transports */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Transports
+                                                <FormattedMessage defaultMessage='Transports' />
                                                 <Tooltip
                                                     placement='top'
                                                     classes={{
@@ -400,8 +412,10 @@ class Configuration extends React.Component {
                                                     disableHoverListener
                                                     title={
                                                         <React.Fragment>
+                                                            <FormattedMessage defaultMessage='
                                                             HTTP is less secure than HTTPS and makes your API vulnerable
-                                                            to security threats.
+                                                            to security threats.'
+                                                            />
                                                         </React.Fragment>
                                                     }
                                                 >
@@ -430,7 +444,7 @@ class Configuration extends React.Component {
                                                                 value='http'
                                                             />
                                                         }
-                                                        label='HTTP'
+                                                        label={<FormattedMessage defaultMessage='HTTP' />}
                                                     />
                                                     <FormControlLabel
                                                         control={
@@ -444,11 +458,13 @@ class Configuration extends React.Component {
                                                                 value='https'
                                                             />
                                                         }
-                                                        label='HTTPS'
+                                                        label={<FormattedMessage defaultMessage='HTTPS' />}
                                                     />
                                                     {error && (
                                                         <FormHelperText className={classes.error}>
-                                                            Please select at least one transport.
+                                                            <FormattedMessage defaultMessage='
+                                                            Please select at least one transport.'
+                                                            />
                                                         </FormHelperText>
                                                     )}
                                                 </FormGroup>
@@ -459,14 +475,14 @@ class Configuration extends React.Component {
                                         <div className={classes.imageWrapper}>
                                             {/* Provider */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Provider
+                                                <FormattedMessage defaultMessage='Provider' />
                                             </Typography>
                                             <Typography component='p' variant='body1'>
                                                 {api.provider && <React.Fragment>{api.provider}</React.Fragment>}
                                             </Typography>
                                             {/* Type */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Type
+                                                <FormattedMessage defaultMessage='Type' />
                                             </Typography>
                                             <Typography component='p' variant='body1'>
                                                 {api.type && <React.Fragment>{api.type}</React.Fragment>}
@@ -474,7 +490,7 @@ class Configuration extends React.Component {
                                             </Typography>
                                             {/* workflowStatus */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Workflow Status
+                                                <FormattedMessage defaultMessage='Workflow Status' />
                                             </Typography>
                                             <Typography component='p' variant='body1'>
                                                 {api.workflowStatus && (
@@ -484,7 +500,7 @@ class Configuration extends React.Component {
                                             </Typography>
                                             {/* Created Time */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Created Time
+                                                <FormattedMessage defaultMessage='Created Time' />
                                             </Typography>
                                             <Typography component='p' variant='body1'>
                                                 {api.createdTime && <React.Fragment>{api.createdTime}</React.Fragment>}
@@ -492,7 +508,7 @@ class Configuration extends React.Component {
                                             </Typography>
                                             {/* Last Updated Time */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Last Updated Time
+                                                <FormattedMessage defaultMessage='Last Updated Time' />
                                             </Typography>
                                             <Typography component='p' variant='body1'>
                                                 {api.lastUpdatedTime && (
@@ -504,7 +520,7 @@ class Configuration extends React.Component {
                                         <div className={classes.rightDataColum}>
                                             {/* Response Caching */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Response Caching
+                                                <FormattedMessage defaultMessage='Response Caching' />
                                                 <Tooltip
                                                     placement='top'
                                                     classes={{
@@ -513,11 +529,13 @@ class Configuration extends React.Component {
                                                     disableHoverListener
                                                     title={
                                                         <React.Fragment>
+                                                            <FormattedMessage defaultMessage='
                                                             This option determines whether to cache the response
                                                             messages of the API. Caching improves performance because
                                                             the backend server does not have to process the same data
                                                             multiple times. To offset the risk of stale data in the
-                                                            cache, set an appropriate timeout period when prompted.
+                                                            cache, set an appropriate timeout period when prompted.'
+                                                            />
                                                         </React.Fragment>
                                                     }
                                                 >
@@ -564,14 +582,16 @@ class Configuration extends React.Component {
                                                             value={cacheTimeout || api.cacheTimeout}
                                                             onChange={this.handleChange('cacheTimeout')}
                                                             margin='normal'
-                                                            helperText='Cache Timeout (seconds)'
+                                                            helperText={<FormattedMessage defaultMessage='
+                                                            Cache Timeout (seconds)'
+                                                            />}
                                                         />
                                                     </FormControl>
                                                 )}
                                             </div>
                                             {/* Authorization Header */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Authorization Header
+                                                <FormattedMessage defaultMessage='Authorization Header' />
                                                 <Tooltip
                                                     placement='top'
                                                     classes={{
@@ -580,11 +600,13 @@ class Configuration extends React.Component {
                                                     disableHoverListener
                                                     title={
                                                         <React.Fragment>
+                                                            <FormattedMessage defaultMessage='
                                                             A custom authorization header can be defined as a
                                                             replacement to the default <strong>Authorization</strong>
                                                             header used to send a request. If a value is specified here,
                                                             it will be used as the header field to send the access token
-                                                            in a request to consume the API
+                                                            in a request to consume the API'
+                                                            />
                                                         </React.Fragment>
                                                     }
                                                 >
@@ -610,7 +632,7 @@ class Configuration extends React.Component {
                                             </FormControl>
                                             {/* Access Control */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Access Control
+                                                <FormattedMessage defaultMessage='Access Control' />
                                                 <Tooltip
                                                     placement='top'
                                                     classes={{
@@ -619,12 +641,13 @@ class Configuration extends React.Component {
                                                     disableHoverListener
                                                     title={
                                                         <React.Fragment>
-                                                            <strong>All :</strong> The API is viewable, modifiable by
+                                                            <FormattedMessage defaultMessage='
+                                                            All : The API is viewable, modifiable by
                                                             all the publishers and creators.
-                                                            <br />
-                                                            <strong>Restricted by roles :</strong> The API can be
+                                                            Restricted by roles :The API can be
                                                             viewable and modifiable by only specific publishers and
-                                                            creators with the roles that you specify
+                                                            creators with the roles that you specify'
+                                                            />
                                                         </React.Fragment>
                                                     }
                                                 >
@@ -644,10 +667,16 @@ class Configuration extends React.Component {
                                                             id: 'accessControl',
                                                         }}
                                                     >
-                                                        <option value='NONE'>All</option>
-                                                        <option value='RESTRICTED'>Restricted by roles</option>
+                                                        <option value='NONE'>
+                                                            <FormattedMessage defaultMessage='All' />
+                                                        </option>
+                                                        <option value='RESTRICTED'>
+                                                            <FormattedMessage defaultMessage='Restricted by roles' />
+                                                        </option>
                                                     </Select>
-                                                    <FormHelperText>Access Control</FormHelperText>
+                                                    <FormHelperText>
+                                                        <FormattedMessage defaultMessage='Access Control' />
+                                                    </FormHelperText>
                                                 </FormControl>
                                                 {((!accessControl && api.accessControl === 'RESTRICTED') ||
                                                     (accessControl && accessControl === 'RESTRICTED')) && (
@@ -661,15 +690,17 @@ class Configuration extends React.Component {
                                                             )}
                                                             onChange={this.handleChange('accessControlRoles')}
                                                             margin='normal'
-                                                            helperText='Comma seperated list of roles
+                                                            helperText={<FormattedMessage defaultMessage='
+                                                            Comma seperated list of roles
                                                             (e.g:role1,role2,role3)'
+                                                            />}
                                                         />
                                                     </FormControl>
                                                 )}
                                             </div>
                                             {/* Visibility */}
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                                Visibility on Store
+                                                <FormattedMessage defaultMessage='Visibility on Store' />
                                                 <Tooltip
                                                     placement='top'
                                                     classes={{
@@ -678,13 +709,14 @@ class Configuration extends React.Component {
                                                     disableHoverListener
                                                     title={
                                                         <React.Fragment>
-                                                            <strong>Public :</strong> The API is accessible to everyone
+                                                            <FormattedMessage defaultMessage='
+                                                            Public :The API is accessible to everyone
                                                             and can be advertised in multiple stores - a central store
                                                             and/or non-WSO2 stores.
-                                                            <br />
-                                                            <strong>Restricted by roles :</strong> The API is visible
+                                                            Restricted by roles : The API is visible
                                                             only to specific user roles in the tenant store that you
-                                                            specify.
+                                                            specify.'
+                                                            />
                                                         </React.Fragment>
                                                     }
                                                 >
@@ -704,10 +736,16 @@ class Configuration extends React.Component {
                                                             id: 'visibility',
                                                         }}
                                                     >
-                                                        <option value='PUBLIC'>Public</option>
-                                                        <option value='RESTRICTED'>Restricted by roles</option>
+                                                        <option value='PUBLIC'>
+                                                            <FormattedMessage defaultMessage='Public' />
+                                                        </option>
+                                                        <option value='RESTRICTED'>
+                                                            <FormattedMessage defaultMessage='Restricted by roles' />
+                                                        </option>
                                                     </Select>
-                                                    <FormHelperText>Visibility</FormHelperText>
+                                                    <FormHelperText>
+                                                        <FormattedMessage defaultMessage='Visibility' />
+                                                    </FormHelperText>
                                                 </FormControl>
                                                 {((!visibility && api.visibility === 'RESTRICTED') ||
                                                     (visibility && visibility === 'RESTRICTED')) && (
@@ -721,8 +759,10 @@ class Configuration extends React.Component {
                                                             )}
                                                             onChange={this.handleChange('visibleRoles')}
                                                             margin='normal'
-                                                            helperText='Comma seperated list
+                                                            helperText={<FormattedMessage defaultMessage='
+                                                            Comma seperated list
                                                             of roles (e.g:role1,role2,role3)'
+                                                            />}
                                                         />
                                                     </FormControl>
                                                 )}
@@ -730,7 +770,7 @@ class Configuration extends React.Component {
                                         </div>
                                     </div>
                                     <Typography component='p' variant='subtitle2' className={classes.subtitle}>
-                                        Tags
+                                        <FormattedMessage defaultMessage='Tags' />
                                     </Typography>
                                     <ChipInput
                                         value={tags || api.tags}
@@ -753,14 +793,14 @@ class Configuration extends React.Component {
                                                     color='primary'
                                                     onClick={() => this.handleSubmit(api, updateAPI)}
                                                 >
-                                                    <FormattedMessage id='save' defaultMessage='Save' />
+                                                    <FormattedMessage defaultMessage='Save' />
                                                 </Button>
                                             </div>
                                         </Grid>
                                         <Grid item>
                                             <Link to={'/apis/' + api.id + '/overview'}>
                                                 <Button>
-                                                    <FormattedMessage id='cancel' defaultMessage='Cancel' />
+                                                    <FormattedMessage defaultMessage='Cancel' />
                                                 </Button>
                                             </Link>
                                         </Grid>
