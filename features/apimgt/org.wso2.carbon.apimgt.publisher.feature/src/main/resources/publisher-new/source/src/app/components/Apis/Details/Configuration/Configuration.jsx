@@ -367,7 +367,8 @@ class Configuration extends React.Component {
                                             <Typography component='p' variant='subtitle2' className={classes.subtitle}>
                                                 <FormattedMessage
                                                     id='Apis.Details.Configuration.Configuration.default.version'
-                                                    defaultMessage='Default Version' />
+                                                    defaultMessage='Default Version'
+                                                />
                                                 <Tooltip
                                                     placement='top'
                                                     classes={{
@@ -377,17 +378,18 @@ class Configuration extends React.Component {
                                                     title={
                                                         <React.Fragment>
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.
-                                                                default.version.tooltip'
-                                                                defaultMessage='
-                                                            Marks one API version in a group as the default so that it
-                                                            can be invoked without specifying the version number in the
-                                                            URL. For example, if you mark http://host:port/youtube/2.0
-                                                            as the default API, requests made to
-                                                            http://host:port/youtube/ are automatically routed to
-                                                            version 2.0. If you mark an unpublished API as the default,
-                                                            the previous default published API will still be used as the
-                                                            default until the new default API is published.'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'default.version.tooltip'}
+                                                                defaultMessage={'Marks one API version in a group as ' +
+                                                                'the default so that it can be invoked without ' +
+                                                                'specifying the version number in the URL. ' +
+                                                                'For example, if you mark ' +
+                                                                'http://host:port/youtube/2.0 as the default API, ' +
+                                                                'requests made to http://host:port/youtube/ are ' +
+                                                                'automatically routed to version 2.0. If you mark an ' +
+                                                                'unpublished API as the default, the previous  ' +
+                                                                'default published API will still be used as the ' +
+                                                                'until the new default API is published.'}
                                                             />
                                                         </React.Fragment>
                                                     }
@@ -412,8 +414,8 @@ class Configuration extends React.Component {
                                                         control={<Radio />}
                                                         label={
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.default.
-                                                                version.yes'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'default.version.yes'}
                                                                 defaultMessage='Yes'
                                                             />}
                                                     />
@@ -422,8 +424,8 @@ class Configuration extends React.Component {
                                                         control={<Radio />}
                                                         label={
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.default.
-                                                                version.no'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'default.version.no'}
                                                                 defaultMessage='No'
                                                             />}
                                                     />
@@ -444,10 +446,10 @@ class Configuration extends React.Component {
                                                     title={
                                                         <React.Fragment>
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.transport.
-                                                                tooltip'
-                                                                defaultMessage='HTTP is less secure than HTTPS and makes
-                                                                your API vulnerable to security threats.'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'transport.tooltip'}
+                                                                defaultMessage={'HTTP is less secure than HTTPS and ' +
+                                                                'makes your API vulnerable to security threats.'}
                                                             />
                                                         </React.Fragment>
                                                     }
@@ -495,16 +497,16 @@ class Configuration extends React.Component {
                                                             />
                                                         }
                                                         label={<FormattedMessage
-                                                            id='Apis.Details.Configuration.Configuration.transport.
-                                                            https'
+                                                            id={'Apis.Details.Configuration.Configuration.transport.' +
+                                                            'https'}
                                                             defaultMessage='HTTPS'
                                                         />}
                                                     />
                                                     {error && (
                                                         <FormHelperText className={classes.error}>
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.transport.
-                                                                helper.text'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'transport.helper.text'}
                                                                 defaultMessage='Please select at least one transport.'
                                                             />
                                                         </FormHelperText>
@@ -590,14 +592,15 @@ class Configuration extends React.Component {
                                                     title={
                                                         <React.Fragment>
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.response.
-                                                                caching.tooltip'
-                                                                defaultMessage='This option determines whether to cache
-                                                                the response messages of the API. Caching improves
-                                                                performance because the backend server does not have to
-                                                                process the same data multiple times. To offset the risk
-                                                                of stale data in the cache, set an appropriate timeout
-                                                                period when prompted.'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'response.caching.tooltip'}
+                                                                defaultMessage={'This option determines whether to ' +
+                                                                'cache the response messages of the API. Caching ' +
+                                                                'improves performance because the backend server  ' +
+                                                                'does not have to process the same data multiple ' +
+                                                                'times.To offset the risk of stale data in the ' +
+                                                                'cache,set an appropriate timeout period when ' +
+                                                                'prompted.'}
                                                             />
                                                         </React.Fragment>
                                                     }
@@ -646,8 +649,8 @@ class Configuration extends React.Component {
                                                             onChange={this.handleChange('cacheTimeout')}
                                                             margin='normal'
                                                             helperText={<FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.cache.
-                                                                timeout'
+                                                                id={'Apis.Details.Configuration.Configuration.cache.' +
+                                                                'timeout'}
                                                                 defaultMessage='Cache Timeout (seconds)'
                                                             />}
                                                         />
@@ -669,13 +672,14 @@ class Configuration extends React.Component {
                                                     title={
                                                         <React.Fragment>
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.
-                                                                authorization.header.tooltip'
-                                                                defaultMessage='A custom authorization header can be
-                                                                defined as a replacement to the default Authorization
-                                                                header used to send a request. If a value is specified
-                                                                here,it will be used as the header field to send the
-                                                                access token in a request to consume the API'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'authorization.header.tooltip'}
+                                                                defaultMessage={'A custom authorization header can ' +
+                                                                'be defined as a replacement to the default ' +
+                                                                'Authorization header used to send a request. ' +
+                                                                'If a value is specified here,it will be used as the ' +
+                                                                'header field to send the access token in a request ' +
+                                                                'to consume the API'}
                                                             />
                                                         </React.Fragment>
                                                     }
@@ -715,13 +719,13 @@ class Configuration extends React.Component {
                                                     title={
                                                         <React.Fragment>
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.access.
-                                                                control.tooltip'
-                                                                defaultMessage='All : The API is viewable, modifiable by
-                                                                all the publishers and creators.
-                                                                Restricted by roles :The API can be
-                                                                viewable and modifiable by only specific publishers and
-                                                                creators with the roles that you specify'
+                                                                id={'Apis.Details.Configuration.Configuration.access.' +
+                                                                'control.tooltip'}
+                                                                defaultMessage={'All : The API is viewable, ' +
+                                                                'modifiable by all the publishers and creators.' +
+                                                                'Restricted by roles :The API can be ' +
+                                                                'viewable and modifiable by only specific publishers ' +
+                                                                'and creators with the roles that you specify'}
                                                             />
                                                         </React.Fragment>
                                                     }
@@ -743,8 +747,8 @@ class Configuration extends React.Component {
                                                         }}
                                                     >
                                                         <FormattedMessage
-                                                            id='Apis.Details.Configuration.Configuration.access.control.
-                                                            all'
+                                                            id={'Apis.Details.Configuration.Configuration.access.' +
+                                                            'control.all'}
                                                             defaultMessage='All'
                                                         >
                                                             {placeholder =>
@@ -752,8 +756,8 @@ class Configuration extends React.Component {
                                                             }
                                                         </FormattedMessage>
                                                         <FormattedMessage
-                                                            id='Apis.Details.Configuration.Configuration.access.
-                                                                control.restricted.by.roles'
+                                                            id={'Apis.Details.Configuration.Configuration.access.' +
+                                                            'control.restricted.by.roles'}
                                                             defaultMessage='Restricted by roles'
                                                         >
                                                             {placeholder =>
@@ -763,8 +767,8 @@ class Configuration extends React.Component {
                                                     </Select>
                                                     <FormHelperText>
                                                         <FormattedMessage
-                                                            id='Apis.Details.Configuration.Configuration.access.control.
-                                                            helper.text'
+                                                            id={'Apis.Details.Configuration.Configuration.access.' +
+                                                            'control.helper.text'}
                                                             defaultMessage='Access Control'
                                                         />
                                                     </FormHelperText>
@@ -782,10 +786,10 @@ class Configuration extends React.Component {
                                                             onChange={this.handleChange('accessControlRoles')}
                                                             margin='normal'
                                                             helperText={<FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.access.
-                                                                control.roles.helper.text'
-                                                                defaultMessage='Comma seperated list of roles
-                                                                (e.g:role1,role2,role3)'
+                                                                id={'Apis.Details.Configuration.Configuration.access.' +
+                                                                'control.roles.helper.text'}
+                                                                defaultMessage={'Comma seperated list of roles ' +
+                                                                '(e.g:role1,role2,role3)'}
                                                             />}
                                                         />
                                                     </FormControl>
@@ -806,14 +810,14 @@ class Configuration extends React.Component {
                                                     title={
                                                         <React.Fragment>
                                                             <FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.visibility.
-                                                                on.store.tooltip'
-                                                                defaultMessage='Public :The API is accessible to
-                                                                everyone and can be advertised in multiple stores
-                                                                - a central store and/or non-WSO2 stores.
-                                                                Restricted by roles : The API is visible only to
-                                                                specific user roles in the tenant store that you
-                                                                specify.'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'visibility.on.store.tooltip'}
+                                                                defaultMessage={'Public :The API is accessible to ' +
+                                                                'everyone and can be advertised in multiple stores ' +
+                                                                '- a central store and/or non-WSO2 stores. ' +
+                                                                'Restricted by roles : The API is visible only to ' +
+                                                                'specific user roles in the tenant store that you ' +
+                                                                'specify.'}
                                                             />
                                                         </React.Fragment>
                                                     }
@@ -835,8 +839,8 @@ class Configuration extends React.Component {
                                                         }}
                                                     >
                                                         <FormattedMessage
-                                                            id='Apis.Details.Configuration.Configuration.visibility.
-                                                            public'
+                                                            id={'Apis.Details.Configuration.Configuration.visibility.' +
+                                                            'public'}
                                                             defaultMessage='Public'
                                                         >
                                                             {placeholder =>
@@ -844,8 +848,8 @@ class Configuration extends React.Component {
                                                             }
                                                         </FormattedMessage>
                                                         <FormattedMessage
-                                                            id='Apis.Details.Configuration.Configuration.visibility.
-                                                            restricted.by.roles'
+                                                            id={'Apis.Details.Configuration.Configuration.visibility.' +
+                                                            'restricted.by.roles'}
                                                             defaultMessage='Restricted by roles'
                                                         >
                                                             {placeholder =>
@@ -873,10 +877,10 @@ class Configuration extends React.Component {
                                                             onChange={this.handleChange('visibleRoles')}
                                                             margin='normal'
                                                             helperText={<FormattedMessage
-                                                                id='Apis.Details.Configuration.Configuration.visibility.
-                                                                helper.text'
-                                                                defaultMessage='Comma seperated list of roles
-                                                                (e.g:role1,role2,role3)'
+                                                                id={'Apis.Details.Configuration.Configuration.' +
+                                                                'visibility.helper.text'}
+                                                                defaultMessage={'Comma seperated list of roles ' +
+                                                                '(e.g:role1,role2,role3)'}
                                                             />}
                                                         />
                                                     </FormControl>

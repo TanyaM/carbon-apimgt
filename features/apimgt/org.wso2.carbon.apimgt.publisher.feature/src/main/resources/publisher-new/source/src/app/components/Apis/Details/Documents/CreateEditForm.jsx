@@ -363,8 +363,8 @@ class CreateEditForm extends React.Component {
                                     <Icon>forum</Icon>
                                     <div>
                                         <FormattedMessage
-                                            id='Apis.Details.Documents.CreateEditForm.document.create.type.support.
-                                            forum'
+                                            id={'Apis.Details.Documents.CreateEditForm.document.create.type.support.' +
+                                            'forum'}
                                             defaultMessage='Support Forum'
                                         />
                                     </div>
@@ -395,15 +395,15 @@ class CreateEditForm extends React.Component {
                             fullWidth
                             label={
                                 <FormattedMessage
-                                    id='Apis.Details.Documents.CreateEditForm.document.create.type.other.document.
-                                    category'
+                                    id={'Apis.Details.Documents.CreateEditForm.document.create.type.other.document.' +
+                                    'category'}
                                     defaultMessage='Other Document Category *'
                                 />
                             }
                             helperText={
                                 <FormattedMessage
-                                    id='Apis.Details.Documents.CreateEditForm.document.create.type.other.document.
-                                    category.helper.text'
+                                    id={'Apis.Details.Documents.CreateEditForm.document.create.type.other.document.' +
+                                    'category.helper.text'}
                                     defaultMessage='Provide the document category'
                                 />
                             }
@@ -528,7 +528,8 @@ class CreateEditForm extends React.Component {
                             <Typography component='p' className={classes.content}>
                                 <FormattedMessage
                                     id='Apis.Details.Documents.CreateEditForm.document.content.info'
-                                    defaultMessage='Please save the document. The content can be edited in the next step.'
+                                    defaultMessage={'Please save the document. The content can be edited in the next ' +
+                                    'step.'}
                                 />
                             </Typography>
                         </div>
