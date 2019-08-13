@@ -69,9 +69,9 @@ export default class ProtectedApp extends Component {
     componentDidMount() {
         ConfigManager.getConfigs()
             .environments.then((response) => {
-                this.environments = response.data.environments;
-                // this.handleEnvironmentQueryParam(); todo: do we really need to handle environment query params here ?
-            })
+            this.environments = response.data.environments;
+            // this.handleEnvironmentQueryParam(); todo: do we really need to handle environment query params here ?
+        })
             .catch((error) => {
                 console.error(
                     'Error while receiving environment configurations : ',

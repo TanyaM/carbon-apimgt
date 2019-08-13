@@ -40,11 +40,11 @@ import Paper from '@material-ui/core/Paper';
 import ClickAwayListener from '@material-ui/core/ClickAwayListener';
 import { FormattedMessage } from 'react-intl';
 import Drawer from '@material-ui/core/Drawer';
+import HeaderSearch from 'AppComponents/Base/Header/headersearch/HeaderSearch';
 import AuthManager from '../../data/AuthManager';
 import ConfigManager from '../../data/ConfigManager';
 import EnvironmentMenu from './Header/EnvironmentMenu';
 import GlobalNavBar from './Header/GlobalNavbar';
-import GenericSearch from './Header/GenericSearch';
 import Utils from '../../data/Utils';
 import VerticalDivider from '../Shared/VerticalDivider';
 
@@ -108,8 +108,8 @@ const styles = theme => ({
         '& ul': {
             display: 'flex',
             flexDirection: 'row',
-        }
-    }
+        },
+    },
 });
 
 class Layout extends React.Component {
@@ -267,7 +267,7 @@ class Layout extends React.Component {
                                 </Drawer>
                             </Hidden>
                             <VerticalDivider height={32} />
-                            <GenericSearch />
+                            <HeaderSearch />
                             <VerticalDivider height={72} />
                             {/* Environment menu */}
                             <EnvironmentMenu

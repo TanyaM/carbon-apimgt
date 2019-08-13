@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ * Copyright (c) 2019, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
  *
  * WSO2 Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -27,9 +27,10 @@ import SearchOutlined from '@material-ui/icons/SearchOutlined';
 import { Link } from 'react-router-dom';
 import APIsIcon from '@material-ui/icons/SettingsApplicationsOutlined';
 import DocumentsIcon from '@material-ui/icons/LibraryBooks';
+import NativeSelect from '@material-ui/core/NativeSelect';
+import { FormattedMessage } from 'react-intl';
 
 import API from 'AppData/api';
-import SearchParser from './SearchParser';
 /* Utility methods defined here are described in
 * react-autosuggest documentation https://github.com/moroshko/react-autosuggest
 */
@@ -41,24 +42,48 @@ import SearchParser from './SearchParser';
  */
 function renderInput(inputProps) {
     const {
-        classes, ref, isLoading, onChange, ...other
-    } = inputProps; // `isLoading` has destructured here to prevent passing unintended prop to TextField
+        classes, ref, isLoading, onDropDownChange, ...other
+    } = inputProps;
     return (
-        <TextField
-            id='searchQuery'
-            InputProps={{
-                inputRef: ref,
-                className: classes.input,
-                classes: { focused: classes.inputFocused },
-                startAdornment: (
-                    <InputAdornment position='start'>
-                        <SearchOutlined />
-                    </InputAdornment>
-                ),
-                onChange,
-                ...other,
-            }}
-        />
+        <React.Fragment>
+            <NativeSelect
+                onChange={onDropDownChange}
+                className={classes.selectRoot}
+            >
+                <FormattedMessage
+                    id='Base.Header.headersearch.SearchUtils.lcState.all'
+                    defaultMessage='All'
+                >
+                    {placeholder => <option value=''>{placeholder}</option>}
+                </FormattedMessage>
+                <FormattedMessage
+                    id='Base.Header.headersearch.SearchUtils.lcState.published'
+                    defaultMessage='Production'
+                >
+                    {placeholder => <option value='PUBLISHED'>{placeholder}</option>}
+                </FormattedMessage>
+                <FormattedMessage
+                    id='Base.Header.headersearch.SearchUtils.lcState.prototyped'
+                    defaultMessage='Prototyped'
+                >
+                    {placeholder => <option value='PROTOTYPED'>{placeholder}</option>}
+                </FormattedMessage>
+            </NativeSelect>
+            <TextField
+                id='searchQuery'
+                InputProps={{
+                    inputRef: ref,
+                    className: classes.input,
+                    classes: { focused: classes.inputFocused },
+                    startAdornment: (
+                        <InputAdornment position='start'>
+                            <SearchOutlined />
+                        </InputAdornment>
+                    ),
+                    ...other,
+                }}
+            />
+        </React.Fragment>
     );
 }
 
@@ -72,8 +97,8 @@ function renderInput(inputProps) {
 function renderSuggestion(suggestion, { query, isHighlighted }) {
     const matches = match(suggestion.name, query);
     const parts = parse(suggestion.name, matches);
-    const path = suggestion.type === 'API' ? `/apis/${suggestion.id}/overview` :
-        `/apis/${suggestion.apiUUID}/documents/${suggestion.id}/details`;
+    const path = suggestion.type === 'API' ? `/apis/${suggestion.id}/overview`
+        : `/apis/${suggestion.apiUUID}/documents/${suggestion.id}/details`;
     // TODO: Style the version ( and apiName if docs) apearing in the menu item
     const suffix = suggestion.type === 'API' ? suggestion.version : (suggestion.apiName + ' ' + suggestion.apiVersion);
     return (
@@ -93,7 +118,8 @@ function renderSuggestion(suggestion, { query, isHighlighted }) {
                             </strong>
                         );
                     })}
-                    <pre /><pre />
+                    <pre />
+                    <pre />
                     {suffix}
                 </MenuItem>
             </Link>
@@ -114,20 +140,34 @@ function getSuggestionValue(suggestion) {
 }
 
 /**
+ * Compose the query that needs to be send to the backend api
+ * @param searchText
+ * @param lcState
+ * @returns {string}
+ */
+function buildSearchQuery(searchText, lcState){
+    searchText = (searchText && !searchText.includes(':')) ? 'content:' + searchText : searchText;
+    return lcState
+        ? (searchText + ' status:' + lcState).trim().toLowerCase() : searchText.trim().toLowerCase();
+}
+
+/**
  * Called for any input change to get the results set
  *
  * @param {String} value current value in input element
  * @returns {Promise} If no input text, return a promise which resolve to empty array, else return the API.all response
  */
-function getSuggestions(value) {
-    const inputValue = value.trim().toLowerCase();
-    const modifiedSearchQuery = SearchParser.parse(inputValue);
-
-    if (inputValue.length === 0 || !modifiedSearchQuery) {
+function getSuggestions(searchText, lcState) {
+    const searchQuery = buildSearchQuery(searchText,lcState);
+    if (/:(\s+|(?![\s\S]))/g.test(searchText)) {
         return new Promise(resolve => resolve({ obj: { list: [] } }));
     } else {
-        return API.search({ query: modifiedSearchQuery, limit: 8 });
+        const api = new API();
+        return api.search({ query: searchQuery, limit: 8 });
     }
 }
 
-export { renderInput, renderSuggestion, getSuggestions, getSuggestionValue };
+
+export {
+    renderInput, renderSuggestion, getSuggestions, getSuggestionValue, buildSearchQuery,
+};
