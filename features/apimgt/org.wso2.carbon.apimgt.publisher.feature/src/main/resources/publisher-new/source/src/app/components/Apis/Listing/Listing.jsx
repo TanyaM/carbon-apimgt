@@ -54,7 +54,13 @@ Listing.propTypes = {
     isAPIProduct: PropTypes.bool.isRequired,
     location: PropTypes.shape({
         search: PropTypes.string,
-    }).isRequired,
+    }),
+};
+
+Listing.defaultProps = {
+    location: PropTypes.shape({
+        search: '',
+    }),
 };
 
 export default withStyles(styles, { withTheme: true })(Listing);
