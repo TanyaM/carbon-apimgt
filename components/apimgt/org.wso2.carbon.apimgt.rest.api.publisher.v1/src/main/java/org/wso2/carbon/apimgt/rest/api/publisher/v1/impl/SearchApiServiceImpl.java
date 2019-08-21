@@ -99,9 +99,15 @@ public class SearchApiServiceImpl implements SearchApiService {
                 }
             }
 
+            Object totalLength = result.get("length");
+            Integer length = 0;
+            if (totalLength != null) {
+                length = (Integer) totalLength;
+            }
+
             resultListDTO.setList(allmatchedResults);
             resultListDTO.setCount(allmatchedResults.size());
-            SearchResultMappingUtil.setPaginationParams(resultListDTO, query, offset, limit, resultListDTO.getCount());
+            SearchResultMappingUtil.setPaginationParams(resultListDTO, query, offset, limit, length);
 
         } catch (APIManagementException e) {
             String errorMessage = "Error while retrieving search results";
