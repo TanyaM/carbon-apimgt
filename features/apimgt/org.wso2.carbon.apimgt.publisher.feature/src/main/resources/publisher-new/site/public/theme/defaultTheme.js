@@ -22,6 +22,7 @@ const Configurations = {
                     leftMenu: '#1a1f2f',
                     leftMenuActive: '#000000',
                     drawer: '#1a1f2f',
+                    activeMenuItem: '#000000',
                 },
             },
             typography: {
@@ -64,6 +65,13 @@ const Configurations = {
                     subscription: '#ffcc80',
                 },
                 thumbnail: {
+                    document: {
+                        icon: 'library_books',
+                        backgrounds: {
+                            prime: 0xcff7ffff,
+                            sub: 0xe2fff7ff,
+                        },
+                    },
                     backgrounds: [ // These backgrounds are use to generate the thumbnails.
                         { prime: 0x8f6bcaff, sub: 0x4fc2f8ff },
                         { prime: 0xf47f16ff, sub: 0xcddc39ff },

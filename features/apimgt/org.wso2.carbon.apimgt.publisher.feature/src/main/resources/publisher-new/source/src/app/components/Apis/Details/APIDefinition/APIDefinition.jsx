@@ -38,6 +38,7 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import MonacoEditor from 'react-monaco-editor';
 import yaml from 'js-yaml';
 import Alert from 'AppComponents/Shared/Alert';
+import API from 'AppData/api.js';
 import { doRedirectToLogin } from 'AppComponents/Shared/RedirectToLogin';
 
 import Dropzone from 'react-dropzone';
@@ -403,14 +404,14 @@ class APIDefinition extends React.Component {
         const {
             swagger, graphQL, openEditor, openDialog, format, convertTo, notFound,
         } = this.state;
-        const { classes, resourceNotFountMessage } = this.props;
+        const { classes, resourceNotFountMessage, api } = this.props;
         let downloadLink;
         let fileName;
         let isGraphQL = 0;
 
         if (graphQL !== null) {
             downloadLink = 'data:text/' + format + ';charset=utf-8,' + encodeURIComponent(graphQL);
-            fileName = 'schema.graphql';
+            fileName = api.provider + '-' + api.name + '-' + api.version + '.graphql';
             isGraphQL = 1;
         } else {
             downloadLink = 'data:text/' + format + ';charset=utf-8,' + encodeURIComponent(swagger);
@@ -599,6 +600,7 @@ APIDefinition.propTypes = {
         updateSwagger: PropTypes.func,
         getSwagger: PropTypes.func,
         id: PropTypes.string,
+        apiType: PropTypes.oneOf([API.CONSTS.API, API.CONSTS.APIProduct]),
     }).isRequired,
     history: PropTypes.shape({
         push: PropTypes.object,

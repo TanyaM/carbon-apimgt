@@ -25,7 +25,7 @@ import Paper from '@material-ui/core/Paper';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import { injectIntl } from 'react-intl';
 
-import { renderInput, renderSuggestion, getSuggestions, getSuggestionValue } from './SearchUtils';
+import { renderInput, renderSuggestion, getSuggestions, getSuggestionValue, buildSearchQuery } from './SearchUtils';
 
 const styles = theme => ({
     container: {
@@ -91,6 +91,7 @@ class HeaderSearch extends React.Component {
         this.handleSuggestionsFetchRequested = this.handleSuggestionsFetchRequested.bind(this);
         this.handleSuggestionsClearRequested = this.handleSuggestionsClearRequested.bind(this);
         this.handleChange = this.handleChange.bind(this);
+        this.onKeyDown = this.onKeyDown.bind(this);
         this.clearOnBlur = this.clearOnBlur.bind(this);
         this.renderSuggestionsContainer = this.renderSuggestionsContainer.bind(this);
         this.onSuggestionSelected = this.onSuggestionSelected.bind(this);
@@ -110,28 +111,14 @@ class HeaderSearch extends React.Component {
     }
 
     /**
-     * Fetch suggestions list for the user entered input value
-     *
-     * @param {String} { value }
-     * @memberof HeaderSearch
+     * On enter pressed after giving a search text
+     * @param event
      */
-    handleSuggestionsFetchRequested({ value }) {
-        this.setState({ isLoading: true });
-        getSuggestions(value).then((body) => {
-            this.setState({ isLoading: false, suggestions: body.obj.list });
-        });
-    }
-
-
-    /**
-     * Handle the suggestions clear Synthetic event
-     *
-     * @memberof HeaderSearch
-     */
-    handleSuggestionsClearRequested() {
-        this.setState({
-            suggestions: [],
-        });
+    onKeyDown(event) {
+        if (event.key === 'Enter') {
+            const { history } = this.props;
+            history.push('/apis/search?query=' + buildSearchQuery(event.target.value));
+        }
     }
 
     /**
@@ -147,6 +134,29 @@ class HeaderSearch extends React.Component {
         });
     }
 
+    /**
+     * Fetch suggestions list for the user entered input value
+     *
+     * @param {String} { value }
+     * @memberof HeaderSearch
+     */
+    handleSuggestionsFetchRequested({ value }) {
+        this.setState({ isLoading: true });
+        getSuggestions(value).then((body) => {
+            this.setState({ isLoading: false, suggestions: body.obj.list });
+        });
+    }
+
+    /**
+     * Handle the suggestions clear Synthetic event
+     *
+     * @memberof HeaderSearch
+     */
+    handleSuggestionsClearRequested() {
+        this.setState({
+            suggestions: [],
+        });
+    }
     /**
      *
      * When search input is focus out (Blur), Clear the input text to accept brand new search
@@ -224,6 +234,7 @@ class HeaderSearch extends React.Component {
                     }),
                     value: searchText,
                     onChange: this.handleChange,
+                    onKeyDown: this.onKeyDown,
                     onBlur: this.clearOnBlur,
                     isLoading,
                 }}

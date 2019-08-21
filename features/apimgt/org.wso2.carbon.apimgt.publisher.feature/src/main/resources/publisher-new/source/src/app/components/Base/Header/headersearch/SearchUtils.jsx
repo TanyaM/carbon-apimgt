@@ -114,20 +114,29 @@ function getSuggestionValue(suggestion) {
 }
 
 /**
+ * Build the search query from the user input
+ * @param searchText
+ * @returns {string}
+ */
+function buildSearchQuery(searchText){
+    const inputValue = searchText.trim().toLowerCase();
+    return SearchParser.parse(inputValue);
+}
+
+/**
  * Called for any input change to get the results set
  *
  * @param {String} value current value in input element
  * @returns {Promise} If no input text, return a promise which resolve to empty array, else return the API.all response
  */
 function getSuggestions(value) {
-    const inputValue = value.trim().toLowerCase();
-    const modifiedSearchQuery = SearchParser.parse(inputValue);
+    const modifiedSearchQuery = buildSearchQuery(value);
 
-    if (inputValue.length === 0 || !modifiedSearchQuery) {
+    if (value.trim().length === 0 || !modifiedSearchQuery) {
         return new Promise(resolve => resolve({ obj: { list: [] } }));
     } else {
         return API.search({ query: modifiedSearchQuery, limit: 8 });
     }
 }
 
-export { renderInput, renderSuggestion, getSuggestions, getSuggestionValue };
+export { renderInput, renderSuggestion, getSuggestions, getSuggestionValue, buildSearchQuery };

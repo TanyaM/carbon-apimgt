@@ -25,7 +25,7 @@ import AppBar from '@material-ui/core/AppBar';
 import Toolbar from '@material-ui/core/Toolbar';
 import IconButton from '@material-ui/core/IconButton';
 import Typography from '@material-ui/core/Typography';
-import CloseIcon from '@material-ui/icons/Close';
+import Icon from '@material-ui/core/Icon';
 import Slide from '@material-ui/core/Slide';
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
@@ -91,12 +91,14 @@ class EditApp extends React.Component {
                 name: '',
                 throttlingPolicy: '',
                 description: '',
+                groups: null,
                 tokenType: null,
                 attributes: {},
             },
             isNameValid: true,
             throttlingPolicyList: [],
             allAppAttributes: [],
+            isApplicationSharingEnabled: true,
         };
     }
 
@@ -125,6 +127,7 @@ class EditApp extends React.Component {
                 newRequest.name = application.name;
                 newRequest.throttlingPolicy = application.throttlingPolicy;
                 newRequest.description = application.description;
+                newRequest.groups = application.groups;
                 newRequest.tokenType = application.tokenType;
                 newRequest.attributes = application.attributes;
                 this.setState({ applicationRequest: newRequest, throttlingPolicyList, allAppAttributes });
@@ -139,6 +142,7 @@ class EditApp extends React.Component {
                     this.setState({ notFound: true });
                 }
             });
+        this.isApplicationGroupSharingEnabled();
     }
 
     /**
@@ -284,12 +288,56 @@ class EditApp extends React.Component {
     };
 
     /**
+     * add a new group function
+     * @param {*} chip newly added group
+     * @param {*} appGroups already existing groups
+     */
+    handleAddChip = (chip, appGroups) => {
+        this.setState(() => {
+            const { applicationRequest } = this.state;
+            const newRequest = { ...applicationRequest };
+            let values = appGroups || [];
+            values = values.slice();
+            values.push(chip);
+            newRequest.groups = values;
+            return { applicationRequest: newRequest };
+        });
+    }
+
+    /**
+     * remove a group from already existing groups function
+     * @param {*} chip selected group to be removed
+     * @param {*} index selected group index to be removed
+     * @param {*} appGroups already existing groups
+     */
+    handleDeleteChip = (chip, index, appGroups) => {
+        this.setState(() => {
+            const { applicationRequest } = this.state;
+            const newRequest = { ...applicationRequest };
+            let values = appGroups || [];
+            values = values.filter(v => v !== chip);
+            newRequest.groups = values;
+            return { applicationRequest: newRequest };
+        });
+    }
+
+    /**
+     * retrieve Settings from the local storage
+     */
+    isApplicationGroupSharingEnabled = () => {
+        const settingsData = localStorage.getItem('settings');
+        const enabled = JSON.parse(settingsData).applicationSharingEnabled;
+        this.setState({ isApplicationSharingEnabled: enabled });
+    }
+
+    /**
      * @inheritdoc
      * @memberof EditApp
      */
     render() {
         const {
             throttlingPolicyList, applicationRequest, isNameValid, open, allAppAttributes,
+            isApplicationSharingEnabled,
         } = this.state;
         const { classes } = this.props;
         return (
@@ -299,7 +347,7 @@ class EditApp extends React.Component {
                         <Toolbar>
                             <Link to='/applications' className={classes.buttonRight}>
                                 <IconButton color='inherit' onClick={this.handleClose} aria-label='Close'>
-                                    <CloseIcon />
+                                    <Icon>close</Icon>
                                 </IconButton>
                             </Link>
                             <Typography variant='title' color='inherit' className={classes.flex}>
@@ -318,6 +366,9 @@ class EditApp extends React.Component {
                             handleAttributesChange={this.handleAttributesChange}
                             isRequiredAttribute={this.isRequiredAttribute}
                             getAttributeValue={this.getAttributeValue}
+                            isApplicationSharingEnabled={isApplicationSharingEnabled}
+                            handleDeleteChip={this.handleDeleteChip}
+                            handleAddChip={this.handleAddChip}
                         />
                     </div>
                     <div className={classes.buttonWrapper}>

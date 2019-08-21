@@ -3,6 +3,7 @@ import { Redirect, Route, Switch } from 'react-router-dom';
 import { withStyles } from '@material-ui/core';
 import Apis from './components/Apis/Apis';
 import Applications from './components/Applications/Applications';
+import SearchListing from './components/Apis/Listing/SearchListing';
 import Landing from './components/LandingPage/Landing';
 import ApplicationCreate from './components/Shared/AppsAndKeys/ApplicationCreateForm';
 import { PageNotFound, ScopeNotFound } from './components/Base/Errors';
@@ -15,6 +16,7 @@ function AppRouts(props) {
             <Redirect exact from='/' to={theme.custom.landingPage.active ? '/home' : '/apis'} />
             {theme.custom.landingPage.active && <Route path='/home' component={Landing} /> }
             <Route path='/(apis|api-products)' component={Apis} />
+            <Route path='/search' component={SearchListing} />
             {isAuthenticated ? (
                 <React.Fragment>
                     <Route path='/applications' component={Applications} />

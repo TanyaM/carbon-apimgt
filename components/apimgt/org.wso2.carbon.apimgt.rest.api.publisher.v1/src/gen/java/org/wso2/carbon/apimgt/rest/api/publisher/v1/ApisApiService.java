@@ -76,9 +76,6 @@ public interface ApisApiService {
       public Response apisApiIdSubscriptionPoliciesGet(String apiId, String xWSO2Tenant, String ifNoneMatch, MessageContext messageContext);
       public Response apisApiIdSwaggerGet(String apiId, String ifNoneMatch, MessageContext messageContext);
       public Response apisApiIdSwaggerPut(String apiId, String apiDefinition, String ifMatch, MessageContext messageContext);
-      public Response apisApiIdThreatProtectionPoliciesDelete(String apiId, String policyId, MessageContext messageContext);
-      public Response apisApiIdThreatProtectionPoliciesGet(String apiId, MessageContext messageContext);
-      public Response apisApiIdThreatProtectionPoliciesPost(String apiId, String policyId, MessageContext messageContext);
       public Response apisApiIdThumbnailGet(String apiId, String ifNoneMatch, MessageContext messageContext);
       public Response apisApiIdWsdlGet(String apiId, String ifNoneMatch, MessageContext messageContext);
       public Response apisApiIdWsdlPut(String apiId, InputStream fileInputStream, Attachment fileDetail, String ifMatch, MessageContext messageContext);
@@ -86,7 +83,7 @@ public interface ApisApiService {
       public Response apisCopyApiPost(String newVersion, String apiId, Boolean defaultVersion, MessageContext messageContext);
       public Response apisGet(Integer limit, Integer offset, String xWSO2Tenant, String query, String ifNoneMatch, Boolean expand, String accept, String tenantDomain, MessageContext messageContext);
       public Response apisHead(String query, String ifNoneMatch, MessageContext messageContext);
-      public Response apisImportGraphQLSchemaPost(String type, InputStream fileInputStream, Attachment fileDetail, String additionalProperties, String ifMatch, MessageContext messageContext);
+      public Response apisImportGraphqlSchemaPost(String type, InputStream fileInputStream, Attachment fileDetail, String additionalProperties, String ifMatch, MessageContext messageContext);
       public Response apisPost(APIDTO body, MessageContext messageContext);
       public Response apisValidateGraphqlSchemaPost(InputStream fileInputStream, Attachment fileDetail, MessageContext messageContext);
       public Response importOpenAPIDefinition(InputStream fileInputStream, Attachment fileDetail, String url, String additionalProperties, MessageContext messageContext);
