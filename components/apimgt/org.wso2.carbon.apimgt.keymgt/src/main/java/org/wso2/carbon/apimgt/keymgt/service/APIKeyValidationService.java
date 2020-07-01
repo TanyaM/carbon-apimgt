@@ -18,7 +18,6 @@
 
 package org.wso2.carbon.apimgt.keymgt.service;
 
-
 import org.apache.axis2.AxisFault;
 import org.apache.axis2.context.MessageContext;
 import org.apache.axis2.transport.http.HTTPConstants;
@@ -27,67 +26,52 @@ import org.apache.commons.httpclient.Header;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.apimgt.api.APIManagementException;
+import org.wso2.carbon.apimgt.api.dto.ConditionDTO;
+import org.wso2.carbon.apimgt.api.dto.ConditionGroupDTO;
 import org.wso2.carbon.apimgt.api.model.APIIdentifier;
 import org.wso2.carbon.apimgt.api.model.Application;
 import org.wso2.carbon.apimgt.api.model.URITemplate;
+import org.wso2.carbon.apimgt.api.model.subscription.URLMapping;
 import org.wso2.carbon.apimgt.impl.APIConstants;
 import org.wso2.carbon.apimgt.impl.dao.ApiMgtDAO;
-import org.wso2.carbon.apimgt.impl.dao.constants.SQLConstants;
 import org.wso2.carbon.apimgt.impl.dto.APIKeyValidationInfoDTO;
-import org.wso2.carbon.apimgt.impl.utils.APIMgtDBUtil;
 import org.wso2.carbon.apimgt.impl.utils.APIUtil;
 import org.wso2.carbon.apimgt.keymgt.APIKeyMgtException;
+import org.wso2.carbon.apimgt.keymgt.SubscriptionDataHolder;
 import org.wso2.carbon.apimgt.keymgt.handlers.KeyValidationHandler;
 import org.wso2.carbon.apimgt.keymgt.internal.ServiceReferenceHolder;
+import org.wso2.carbon.apimgt.keymgt.model.SubscriptionDataStore;
+import org.wso2.carbon.apimgt.keymgt.model.entity.API;
+import org.wso2.carbon.apimgt.keymgt.model.entity.APIPolicyConditionGroup;
+import org.wso2.carbon.apimgt.keymgt.model.entity.ApiPolicy;
+import org.wso2.carbon.apimgt.keymgt.model.entity.Condition;
+import org.wso2.carbon.apimgt.keymgt.model.impl.SubscriptionDataLoaderImpl;
+import org.wso2.carbon.apimgt.keymgt.model.impl.SubscriptionDataStoreImpl;
 import org.wso2.carbon.apimgt.keymgt.util.APIKeyMgtDataHolder;
 import org.wso2.carbon.apimgt.keymgt.util.APIKeyMgtUtil;
 import org.wso2.carbon.apimgt.tracing.TracingSpan;
 import org.wso2.carbon.apimgt.tracing.TracingTracer;
 import org.wso2.carbon.apimgt.tracing.Util;
-import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.core.AbstractAdmin;
 import org.wso2.carbon.metrics.manager.MetricManager;
 import org.wso2.carbon.metrics.manager.Timer;
 import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  *
  */
-public class APIKeyValidationService extends AbstractAdmin {
+public class APIKeyValidationService {
     private static final Log log = LogFactory.getLog(APIKeyValidationService.class);
-    private static KeyValidationHandler keyValidationHandler;
-
-    public APIKeyValidationService() {
-        try {
-            if (keyValidationHandler == null) {
-
-                KeyValidationHandler validationHandler = (KeyValidationHandler) APIUtil.getClassForName
-                        (ServiceReferenceHolder.getInstance().
-                                getAPIManagerConfigurationService().getAPIManagerConfiguration().
-                                getFirstProperty(APIConstants.API_KEY_MANGER_VALIDATIONHANDLER_CLASS_NAME).trim()).newInstance();
-                log.info("Initialised KeyValidationHandler instance successfully");
-                if (keyValidationHandler == null) {
-                    synchronized (this) {
-                        keyValidationHandler = validationHandler;
-                    }
-                }
-            }
-        } catch (InstantiationException e) {
-            log.error("Error while instantiating class" + e.toString());
-        } catch (IllegalAccessException e) {
-            log.error("Error while accessing class" + e.toString());
-        } catch (ClassNotFoundException e) {
-            log.error("Error while creating keyManager instance" + e.toString());
-        }
-    }
 
     /**
      * Validates the access tokens issued for a particular user to access an API.
@@ -100,7 +84,8 @@ public class APIKeyValidationService extends AbstractAdmin {
      */
     public APIKeyValidationInfoDTO validateKey(String context, String version, String accessToken,
                                                String requiredAuthenticationLevel, String clientDomain,
-                                               String matchingResource, String httpVerb)
+                                               String matchingResource, String httpVerb,String tenantDomain,
+                                               List keyManagers)
             throws APIKeyMgtException, APIManagementException {
 
         TracingSpan validateMainSpan = null;
@@ -167,6 +152,8 @@ public class APIKeyValidationService extends AbstractAdmin {
         validationContext.setRequiredAuthenticationLevel(requiredAuthenticationLevel);
         validationContext.setValidationInfoDTO(new APIKeyValidationInfoDTO());
         validationContext.setVersion(version);
+        validationContext.setTenantDomain(tenantDomain);
+        validationContext.setKeyManagers(keyManagers);
 
         if (Util.tracingEnabled()) {
             getAccessTokenCacheSpan =
@@ -200,6 +187,8 @@ public class APIKeyValidationService extends AbstractAdmin {
         if (Util.tracingEnabled()) {
             validateTokenSpan = Util.startSpan(TracingConstants.VALIDATE_TOKEN, validateMainSpan, tracer);
         }
+        KeyValidationHandler keyValidationHandler =
+                ServiceReferenceHolder.getInstance().getKeyValidationHandler(tenantDomain);
         boolean state = keyValidationHandler.validateToken(validationContext);
         timerContext2.stop();
         if (Util.tracingEnabled()) {
@@ -308,12 +297,124 @@ public class APIKeyValidationService extends AbstractAdmin {
                     + new SimpleDateFormat("[yyyy.MM.dd HH:mm:ss,SSS zzz]").format(new Date())
                     + " ,for:" + context);
         }
-        ArrayList<URITemplate> templates = ApiMgtDAO.getInstance().getAllURITemplates(context, version);
+        ArrayList<URITemplate> templates = getTemplates(context, version);
         if (log.isDebugEnabled()) {
             log.debug("getAllURITemplates response from keyManager to gateway for:" + context + " at "
                     + new SimpleDateFormat("[yyyy.MM.dd HH:mm:ss,SSS zzz]").format(new Date()));
         }
         timerContext6.stop();
+        return templates;
+    }
+
+    private ArrayList<URITemplate> getTemplates(String context, String version) throws APIManagementException {
+        String tenantDomain = MultitenantUtils.getTenantDomainFromRequestURL(context);
+        if (tenantDomain == null) {
+            tenantDomain = MultitenantConstants.SUPER_TENANT_DOMAIN_NAME;
+        }
+        ArrayList<URITemplate> templates = new ArrayList<URITemplate>();
+
+        SubscriptionDataStore store = SubscriptionDataHolder.getInstance().getTenantSubscriptionStore(tenantDomain);
+        if(store == null) {
+            return templates;
+        }
+        SubscriptionDataStoreImpl storeImpl = (SubscriptionDataStoreImpl) store; // TODO move to interface
+        API api;
+        if (storeImpl.isApisInitialized()) {
+            log.debug("SubscriptionDataStore Initialized. Reading from SubscriptionDataStore");
+            api = store.getApiByContextAndVersion(context, version);
+        } else {
+            log.debug("SubscriptionDataStore not Initialized. Reading from Rest API");
+            api = new SubscriptionDataLoaderImpl().getApi(context, version);
+            if (api != null) {
+                store.addOrUpdateAPI(api);
+                if(log.isDebugEnabled()) {
+                    log.debug("Update SubscriptionDataStore api for " + api.getCacheKey());
+                }
+            }
+        }
+
+        if(api == null || api.getApiId() == 0) {
+            return templates;
+        }
+        List<URLMapping> mapping = api.getResources();
+        if(mapping == null || mapping.isEmpty()) {
+            return templates;
+        }
+        int apiTenantId = APIUtil.getTenantId(APIUtil.replaceEmailDomainBack(api.getApiProvider()));
+        if (log.isDebugEnabled()) {
+            log.debug("Tenant domain: " + tenantDomain + " tenantId: " + apiTenantId);
+        }
+        ApiPolicy apiPolicy;
+        URITemplate template;
+        for (URLMapping urlMapping : mapping) {
+            template = new URITemplate();
+            template.setHTTPVerb(urlMapping.getHttpMethod());
+            template.setAuthType(urlMapping.getAuthScheme());
+            template.setUriTemplate(urlMapping.getUrlPattern());
+            template.setThrottlingTier(urlMapping.getThrottlingPolicy());
+            
+            if (storeImpl.isApiPoliciesInitialized()) {
+                log.debug("SubscriptionDataStore Initialized. Reading API Policies from SubscriptionDataStore");
+                apiPolicy = store.getApiPolicyByName(urlMapping.getThrottlingPolicy(), apiTenantId);
+                if (apiPolicy == null) {
+                    //could be null for situations where invoke before map is updated
+                    log.debug("API Policies not found in the SubscriptionDataStore. Retrieving from the Rest API");
+                    apiPolicy = new SubscriptionDataLoaderImpl().getAPIPolicy(urlMapping.getThrottlingPolicy(),
+                            tenantDomain);
+                    if (apiPolicy != null) {
+                        store.addOrUpdateApiPolicy(apiPolicy);
+                        if (log.isDebugEnabled()) {
+                            log.debug("Update SubscriptionDataStore API Policy for " + apiPolicy.getCacheKey());
+                        }
+                    }
+                    
+                }
+            } else {
+                log.debug("SubscriptionDataStore not Initialized. Reading API Policies from Rest API");
+                apiPolicy = new SubscriptionDataLoaderImpl().getAPIPolicy(urlMapping.getThrottlingPolicy(),
+                        tenantDomain);
+                if (apiPolicy != null) {
+                    store.addOrUpdateApiPolicy(apiPolicy);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Update SubscriptionDataStore API Policu for " + apiPolicy.getCacheKey());
+                    }
+                }
+            }
+            
+            List<String> tiers = new ArrayList<String>();
+            tiers.add(urlMapping.getThrottlingPolicy() + ">" + apiPolicy.isContentAware());
+            template.setThrottlingTiers(tiers);
+            template.setApplicableLevel(apiPolicy.getApplicableLevel());
+            
+            List<APIPolicyConditionGroup> conditions = apiPolicy.getConditionGroups();
+            List<ConditionGroupDTO> conditionGroupsList = new ArrayList<ConditionGroupDTO>();
+            for (APIPolicyConditionGroup cond : conditions) {
+                Set<Condition> condSet = cond.getCondition();
+                if (condSet.isEmpty()) {
+                    continue;
+                }
+                List<ConditionDTO> conditionDtoList = new ArrayList<ConditionDTO>();
+                for (Condition condition : condSet) {
+                    ConditionDTO item = new ConditionDTO();
+                    item.setConditionName(condition.getName());
+                    item.setConditionType(condition.getConditionType());
+                    item.setConditionValue(condition.getValue());
+                    item.isInverted(condition.isInverted());
+                    conditionDtoList.add(item);
+                }
+                ConditionGroupDTO group = new ConditionGroupDTO();
+                group.setConditionGroupId("_condition_" + cond.getConditionGroupId());
+                group.setConditions(conditionDtoList.toArray(new ConditionDTO[] {}));
+                conditionGroupsList.add(group);
+            }
+            ConditionGroupDTO defaultGroup = new ConditionGroupDTO();
+            defaultGroup.setConditionGroupId(APIConstants.THROTTLE_POLICY_DEFAULT);
+            conditionGroupsList.add(defaultGroup);
+            template.getThrottlingConditions().add(APIConstants.THROTTLE_POLICY_DEFAULT);
+            template.setConditionGroups(conditionGroupsList.toArray(new ConditionGroupDTO[]{}));
+            
+            templates.add(template);  
+        }
         return templates;
     }
 
@@ -327,7 +428,7 @@ public class APIKeyValidationService extends AbstractAdmin {
                     + new SimpleDateFormat("[yyyy.MM.dd HH:mm:ss,SSS zzz]").format(new Date())
                     + " ,for:" + context);
         }
-        ArrayList<URITemplate> templates = ApiMgtDAO.getInstance().getAPIProductURITemplates(context, version);
+        ArrayList<URITemplate> templates = getTemplates(context, version);
         if (log.isDebugEnabled()) {
             log.debug("getAllURITemplates response from keyManager to gateway for:" + context + " at "
                     + new SimpleDateFormat("[yyyy.MM.dd HH:mm:ss,SSS zzz]").format(new Date()));
@@ -374,7 +475,8 @@ public class APIKeyValidationService extends AbstractAdmin {
      * @throws APIManagementException
      */
     public APIKeyValidationInfoDTO validateKeyforHandshake(String context, String version,
-                                                           String accessToken)
+                                                           String accessToken, String tenantDomain,
+                                                           List<String> keyManagers)
             throws APIKeyMgtException, APIManagementException {
         boolean defaultVersionInvoked = false;
         APIKeyValidationInfoDTO info = new APIKeyValidationInfoDTO();
@@ -384,13 +486,18 @@ public class APIKeyValidationService extends AbstractAdmin {
         validationContext.setContext(context);
         validationContext.setValidationInfoDTO(new APIKeyValidationInfoDTO());
         validationContext.setVersion(version);
+        validationContext.setTenantDomain(tenantDomain);
         validationContext.setRequiredAuthenticationLevel("Any");
+        validationContext.setKeyManagers(keyManagers);
+        KeyValidationHandler keyValidationHandler =
+                ServiceReferenceHolder.getInstance().getKeyValidationHandler(tenantDomain);
         boolean state = keyValidationHandler.validateToken(validationContext);
         ApiMgtDAO dao = ApiMgtDAO.getInstance();
         if (state) {
             info.setAuthorized(true);
             info.setValidityPeriod(validationContext.getTokenInfo().getValidityPeriod());
             info.setIssuedTime(validationContext.getTokenInfo().getIssuedTime());
+            info.setKeyManager(validationContext.getValidationInfoDTO().getKeyManager());
             String def_version = isDefaultVersionInvoked(validationContext.getContext());
             if (def_version != null) {
                 defaultVersionInvoked = true;
@@ -399,9 +506,9 @@ public class APIKeyValidationService extends AbstractAdmin {
                 validationContext.setVersion(version);
                 validationContext.setContext(context);
             }
-            info = dao.validateSubscriptionDetails(info, validationContext.getContext(),
-                                               validationContext.getVersion(),
-                                               validationContext.getTokenInfo().getConsumerKey(), defaultVersionInvoked);
+            info = dao.validateSubscriptionDetails(info, validationContext.getContext(), validationContext.getVersion(),
+                    validationContext.getTokenInfo().getConsumerKey(), info.getKeyManager(),
+                    defaultVersionInvoked);
 
             if (defaultVersionInvoked) {
                 info.setApiName(info.getApiName() + "*" + version);
@@ -450,10 +557,13 @@ public class APIKeyValidationService extends AbstractAdmin {
      * @param consumerKey Consumer Key
      * @return APIKeyValidationInfoDTO with authorization info and tier info if authorized. If it is not
      * authorized, tier information will be <pre>null</pre>
-     * @throws APIKeyMgtException Error occurred when accessing the underlying database or registry.
      */
-    public APIKeyValidationInfoDTO validateSubscription(String context, String version, String consumerKey)
-            throws APIKeyMgtException, APIManagementException  {
-        return keyValidationHandler.validateSubscription(context, version, consumerKey);
+    public APIKeyValidationInfoDTO validateSubscription(String context, String version, String consumerKey,
+                                                        String tenantDomain,String keyManager)
+            throws APIKeyMgtException, APIManagementException {
+
+        KeyValidationHandler keyValidationHandler =
+                ServiceReferenceHolder.getInstance().getKeyValidationHandler(tenantDomain);
+        return keyValidationHandler.validateSubscription(context, version, consumerKey,keyManager);
     }
 }

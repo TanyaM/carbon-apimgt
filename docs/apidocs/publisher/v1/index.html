@@ -259,6 +259,20 @@
                             </ul>
                         </li>
                         <hr/>
+                        <span class="class-name">DeploymentStatus</span>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                        <li id="op-deploymentsGetStatus"><a href="#!/operations#DeploymentStatus#deploymentsGetStatus">Retrieve deployment status details</a></li>
+                            </ul>
+                        </li>
+                        <hr/>
+                        <span class="class-name">Deployments</span>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                        <li id="op-deploymentsGet"><a href="#!/operations#Deployments#deploymentsGet">Retrieve deployment environments details</a></li>
+                            </ul>
+                        </li>
+                        <hr/>
                         <span class="class-name">Endpoint Certificates</span>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
@@ -295,6 +309,15 @@
                             </ul>
                         </li>
                         <hr/>
+                        <span class="class-name">GraphQL Policies</span>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                        <li id="op-apisApiIdGraphqlPoliciesComplexityGet"><a href="#!/operations#GraphQLPolicies#apisApiIdGraphqlPoliciesComplexityGet">Get the complexity related details of an API</a></li>
+                                        <li id="op-apisApiIdGraphqlPoliciesComplexityPut"><a href="#!/operations#GraphQLPolicies#apisApiIdGraphqlPoliciesComplexityPut">Update complexity related details of an API</a></li>
+                                        <li id="op-apisApiIdGraphqlPoliciesComplexityTypesGet"><a href="#!/operations#GraphQLPolicies#apisApiIdGraphqlPoliciesComplexityTypesGet">Retrieve types and fields of a GraphQL Schema</a></li>
+                            </ul>
+                        </li>
+                        <hr/>
                         <span class="class-name">GraphQL Schema</span>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
@@ -316,6 +339,13 @@
                             </ul>
                         </li>
                         <hr/>
+                        <span class="class-name">Key Managers (Collection)</span>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                        <li id="op-keyManagersGet"><a href="#!/operations#KeyManagersCollection#keyManagersGet">Get all Key Managers</a></li>
+                            </ul>
+                        </li>
+                        <hr/>
                         <span class="class-name">Label Collection</span>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
@@ -331,10 +361,16 @@
                             </ul>
                         </li>
                         <hr/>
-                        <span class="class-name">scope</span>
+                        <span class="class-name">Scopes</span>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
-                                        <li id="op-validateScope"><a href="#!/operations#Scope#validateScope">Check given scope name is already exist</a></li>
+                                        <li id="op-addSharedScope"><a href="#!/operations#Scopes#addSharedScope">Add a new Shared Scope</a></li>
+                                        <li id="op-deleteSharedScope"><a href="#!/operations#Scopes#deleteSharedScope">Delete a Shared Scope</a></li>
+                                        <li id="op-getSharedScope"><a href="#!/operations#Scopes#getSharedScope">Get a Shared Scope by Scope Id</a></li>
+                                        <li id="op-getSharedScopeUsages"><a href="#!/operations#Scopes#getSharedScopeUsages">Get usages of a Shared Scope by Scope Id</a></li>
+                                        <li id="op-getSharedScopes"><a href="#!/operations#Scopes#getSharedScopes">Get all available Shared Scopes</a></li>
+                                        <li id="op-updateSharedScope"><a href="#!/operations#Scopes#updateSharedScope">Update a Shared Scope</a></li>
+                                        <li id="op-validateScope"><a href="#!/operations#Scopes#validateScope">Check given scope name is already exist</a></li>
                             </ul>
                         </li>
                         <hr/>
@@ -343,6 +379,13 @@
                             <ul class="nav nav-stacked">
                                         <li id="op-settingsGatewayEnvironmentsGet"><a href="#!/operations#Settings#settingsGatewayEnvironmentsGet">Get all gateway environments</a></li>
                                         <li id="op-settingsGet"><a href="#!/operations#Settings#settingsGet">Retreive publisher settings</a></li>
+                            </ul>
+                        </li>
+                        <hr/>
+                        <span class="class-name">Subscriber</span>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                        <li id="op-subscriptionsSubscriptionIdSubscriberInfoGet"><a href="#!/operations#Subscriber#subscriptionsSubscriptionIdSubscriberInfoGet">Get details of a user who subscribed an API</a></li>
                             </ul>
                         </li>
                         <hr/>
@@ -500,6 +543,11 @@
                         </li>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
+                                <li id="def-APIScope"><a href="#!/models#APIScope">APIScope</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
                                 <li id="def-API_threatProtectionPolicies"><a href="#!/models#API_threatProtectionPolicies">API_threatProtectionPolicies</a></li>
                             </ul>
                         </li>
@@ -590,12 +638,52 @@
                         </li>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
+                                <li id="def-Claim"><a href="#!/models#Claim">Claim</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
                                 <li id="def-ClientCertMetadata"><a href="#!/models#ClientCertMetadata">ClientCertMetadata</a></li>
                             </ul>
                         </li>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
                                 <li id="def-ClientCertificates"><a href="#!/models#ClientCertificates">ClientCertificates</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-DeploymentClusterInfo"><a href="#!/models#DeploymentClusterInfo">DeploymentClusterInfo</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-DeploymentClusterStatus"><a href="#!/models#DeploymentClusterStatus">DeploymentClusterStatus</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-DeploymentEnvironments"><a href="#!/models#DeploymentEnvironments">DeploymentEnvironments</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-DeploymentList"><a href="#!/models#DeploymentList">DeploymentList</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-DeploymentStatus"><a href="#!/models#DeploymentStatus">DeploymentStatus</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-DeploymentStatusList"><a href="#!/models#DeploymentStatusList">DeploymentStatusList</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-Deployments"><a href="#!/models#Deployments">Deployments</a></li>
                             </ul>
                         </li>
                         <li class="section-box">
@@ -680,7 +768,27 @@
                         </li>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
+                                <li id="def-GraphQLCustomComplexityInfo"><a href="#!/models#GraphQLCustomComplexityInfo">GraphQLCustomComplexityInfo</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-GraphQLQueryComplexityInfo"><a href="#!/models#GraphQLQueryComplexityInfo">GraphQLQueryComplexityInfo</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
                                 <li id="def-GraphQLSchema"><a href="#!/models#GraphQLSchema">GraphQLSchema</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-GraphQLSchemaType"><a href="#!/models#GraphQLSchemaType">GraphQLSchemaType</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-GraphQLSchemaTypeList"><a href="#!/models#GraphQLSchemaTypeList">GraphQLSchemaTypeList</a></li>
                             </ul>
                         </li>
                         <li class="section-box">
@@ -691,6 +799,16 @@
                         <li class="section-box">
                             <ul class="nav nav-stacked">
                                 <li id="def-GraphQLValidationResponse_graphQLInfo"><a href="#!/models#GraphQLValidationResponse_graphQLInfo">GraphQLValidationResponse_graphQLInfo</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-KeyManagerInfo"><a href="#!/models#KeyManagerInfo">KeyManagerInfo</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-KeyManagerList"><a href="#!/models#KeyManagerList">KeyManagerList</a></li>
                             </ul>
                         </li>
                         <li class="section-box">
@@ -780,6 +898,11 @@
                         </li>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
+                                <li id="def-PodStatus"><a href="#!/models#PodStatus">PodStatus</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
                                 <li id="def-ProductAPI"><a href="#!/models#ProductAPI">ProductAPI</a></li>
                             </ul>
                         </li>
@@ -815,16 +938,6 @@
                         </li>
                         <li class="section-box">
                             <ul class="nav nav-stacked">
-                                <li id="def-ScopeList_list"><a href="#!/models#ScopeList_list">ScopeList_list</a></li>
-                            </ul>
-                        </li>
-                        <li class="section-box">
-                            <ul class="nav nav-stacked">
-                                <li id="def-Scope_bindings"><a href="#!/models#Scope_bindings">Scope_bindings</a></li>
-                            </ul>
-                        </li>
-                        <li class="section-box">
-                            <ul class="nav nav-stacked">
                                 <li id="def-SearchResult"><a href="#!/models#SearchResult">SearchResult</a></li>
                             </ul>
                         </li>
@@ -841,6 +954,26 @@
                         <li class="section-box">
                             <ul class="nav nav-stacked">
                                 <li id="def-Settings"><a href="#!/models#Settings">Settings</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-SharedScopeUsage"><a href="#!/models#SharedScopeUsage">SharedScopeUsage</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-SharedScopeUsedAPIInfo"><a href="#!/models#SharedScopeUsedAPIInfo">SharedScopeUsedAPIInfo</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-SharedScopeUsedAPIResourceInfo"><a href="#!/models#SharedScopeUsedAPIResourceInfo">SharedScopeUsedAPIResourceInfo</a></li>
+                            </ul>
+                        </li>
+                        <li class="section-box">
+                            <ul class="nav nav-stacked">
+                                <li id="def-SubscriberInfo"><a href="#!/models#SubscriberInfo">SubscriberInfo</a></li>
                             </ul>
                         </li>
                         <li class="section-box">

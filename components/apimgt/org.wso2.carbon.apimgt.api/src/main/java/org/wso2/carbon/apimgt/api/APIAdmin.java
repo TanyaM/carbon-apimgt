@@ -17,13 +17,17 @@
 */
 package org.wso2.carbon.apimgt.api;
 
-import org.wso2.carbon.apimgt.api.model.Application;
+import org.wso2.carbon.apimgt.api.dto.KeyManagerConfigurationDTO;
 import org.wso2.carbon.apimgt.api.model.APICategory;
+import org.wso2.carbon.apimgt.api.model.Application;
 import org.wso2.carbon.apimgt.api.model.Label;
 import org.wso2.carbon.apimgt.api.model.Monetization;
 import org.wso2.carbon.apimgt.api.model.MonetizationUsagePublishInfo;
+import org.wso2.carbon.apimgt.api.model.Workflow;
+import org.wso2.carbon.apimgt.api.model.botDataAPI.BotDetectionData;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * APIAdmin responsible for providing helper functionality
@@ -125,6 +129,47 @@ public interface APIAdmin  {
             throws APIManagementException;
 
     /**
+     * Add a bot detection alert subscription
+     *
+     * @param email email to be registered for the subscription
+     * @throws APIManagementException if an error occurs when adding a bot detection alert subscription
+     */
+    void addBotDetectionAlertSubscription(String email) throws APIManagementException;
+
+    /**
+     * Delete a bot detection alert subscription
+     *
+     * @param uuid uuid of the subscription
+     * @throws APIManagementException if an error occurs when deleting a bot detection alert subscription
+     */
+    void deleteBotDetectionAlertSubscription(String uuid) throws APIManagementException;
+
+    /**
+     * Retrieve a bot detection alert subscription by querying a particular field (uuid or email)
+     *
+     * @param field field to be queried to obtain the bot detection alert subscription. Can be uuid or email
+     * @param value value corresponding to the field (uuid or email value)
+     * @return if a subscription exists, returns the bot detection alert subscription, else returns a null object
+     * @throws APIManagementException if an error occurs when retrieving a bot detection alert subscription
+     */
+    BotDetectionData getBotDetectionAlertSubscription(String field, String value) throws APIManagementException;
+
+    /**
+     * Retrieve all bot detection alert subscriptions
+     *
+     * @throws APIManagementException if an error occurs when retrieving bot detection alert subscriptions
+     */
+    List<BotDetectionData> getBotDetectionAlertSubscriptions() throws APIManagementException;
+
+    /**
+     * Retrieve all bot detected data
+     *
+     * @return list of bot detected data
+     * @throws APIManagementException
+     */
+    List<BotDetectionData> retrieveBotDetectionData() throws APIManagementException;
+
+    /**
      * Adds a new category for the tenant
      *
      * @param userName    logged in user name
@@ -176,6 +221,15 @@ public interface APIAdmin  {
     List<APICategory> getAllAPICategoriesOfTenant(int tenantID) throws APIManagementException;
 
     /**
+     * Returns all api categories of the tenant with number of APIs for each category
+     *
+     * @param tenantID
+     * @return
+     * @throws APIManagementException
+     */
+    List<APICategory> getAPICategoriesOfTenant(int tenantID) throws APIManagementException;
+
+    /**
      * Returns all api categories of the tenant along with the count of attached APIs
      *
      * @param username
@@ -200,4 +254,115 @@ public interface APIAdmin  {
      * @return Timestamp in long format
      */
     long getTimestamp(String date);
+
+    /**
+     * This method used to retrieve key manager configurations for tenant
+     * @param tenantDomain tenant Domain
+     * @return KeyManagerConfigurationDTO list
+     * @throws APIManagementException if error occurred
+     */
+    List<KeyManagerConfigurationDTO> getKeyManagerConfigurationsByTenant(String tenantDomain) throws APIManagementException;
+
+    /**
+     * This method returns all the key managers registered in all the tenants
+     * @return
+     * @throws APIManagementException
+     */
+    Map<String, List<KeyManagerConfigurationDTO>> getAllKeyManagerConfigurations() throws APIManagementException;
+
+    /**
+     * This method used to retrieve key manager with Id in respective tenant
+     * @param tenantDomain tenant domain requested
+     * @param id uuid of key manager
+     * @return KeyManagerConfigurationDTO for retrieved data
+     * @throws APIManagementException
+     */
+    KeyManagerConfigurationDTO getKeyManagerConfigurationById(String tenantDomain, String id)
+            throws APIManagementException;
+    /**
+     * This method used to check existence of key manager with Id in respective tenant
+     * @param tenantDomain tenant domain requested
+     * @param id uuid of key manager
+     * @return existence
+     * @throws APIManagementException
+     */
+    boolean isKeyManagerConfigurationExistById(String tenantDomain, String id) throws APIManagementException;
+
+    /**
+     * This method used to create key Manager
+     * @param keyManagerConfigurationDTO key manager data
+     * @return created key manager
+     * @throws APIManagementException
+     */
+    KeyManagerConfigurationDTO addKeyManagerConfiguration(KeyManagerConfigurationDTO keyManagerConfigurationDTO)
+            throws APIManagementException;
+    /**
+     * This method used to update key Manager
+     * @param keyManagerConfigurationDTO key manager data
+     * @return updated key manager
+     * @throws APIManagementException
+     */
+    KeyManagerConfigurationDTO updateKeyManagerConfiguration(KeyManagerConfigurationDTO keyManagerConfigurationDTO)
+            throws APIManagementException;
+
+    /**
+     * This method used to delete key manager
+     * @param tenantDomain tenant domain requested
+     * @param id uuid of key manager
+     * @throws APIManagementException
+     */
+    void deleteKeyManagerConfigurationById(String tenantDomain,String id) throws APIManagementException;
+
+    /**
+     * This method used to retrieve key manager from name
+     * @param tenantDomain tenant domain requested
+     * @param name name requested
+     * @return keyManager data
+     * @throws APIManagementException
+     */
+    KeyManagerConfigurationDTO getKeyManagerConfigurationByName(String tenantDomain, String name)
+            throws APIManagementException;
+
+    /**
+     * The method get all the pending workflow requests
+     *
+     * @param workflowType
+     * @param status
+     * @param tenantDomain
+     * @return Workflow[]
+     * @throws APIManagementException
+     */
+    Workflow[] getworkflows(String workflowType, String status, String tenantDomain) throws APIManagementException;
+
+    /**
+     * The method get all the pending workflow requests
+     *
+     * @param externelWorkflowRef
+     * @param status
+     * @param tenantDomain
+     * @return Workflow
+     * @throws APIManagementException
+     */
+    Workflow getworkflowReferenceByExternalWorkflowReferenceID(String externelWorkflowRef, String status, String tenantDomain)
+            throws APIManagementException;
+
+    /**
+     * This method used to check the existence of the scope name for the particular user
+     * @param username user to be validated
+     * @param scopeName scope name to be checked
+     * @return true if a scope exists by the given username
+     * @throws APIManagementException
+     */
+    boolean isScopeExistsForUser(String username, String scopeName)
+            throws APIManagementException;
+
+    /**
+     * This method used to check the existence of the scope name
+     * @param username logged in username to get the tenantDomain
+     * @param scopeName scope name to be checked
+     * @return true if a scope exists
+     * @throws APIManagementException
+     */
+    boolean isScopeExists(String username, String scopeName)
+            throws APIManagementException;
 }

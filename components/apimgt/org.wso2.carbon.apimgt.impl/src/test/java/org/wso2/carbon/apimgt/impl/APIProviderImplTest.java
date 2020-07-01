@@ -72,9 +72,11 @@ import org.wso2.carbon.apimgt.api.model.policy.PolicyConstants;
 import org.wso2.carbon.apimgt.api.model.policy.QuotaPolicy;
 import org.wso2.carbon.apimgt.api.model.policy.RequestCountLimit;
 import org.wso2.carbon.apimgt.api.model.policy.SubscriptionPolicy;
+import org.wso2.carbon.apimgt.impl.certificatemgt.CertificateManagerImpl;
 import org.wso2.carbon.apimgt.impl.dao.ApiMgtDAO;
-import org.wso2.carbon.apimgt.impl.definitions.OASParserUtil;
 import org.wso2.carbon.apimgt.impl.definitions.GraphQLSchemaDefinition;
+import org.wso2.carbon.apimgt.impl.definitions.OASParserUtil;
+import org.wso2.carbon.apimgt.impl.dto.GatewayArtifactSynchronizerProperties;
 import org.wso2.carbon.apimgt.impl.dto.WorkflowDTO;
 import org.wso2.carbon.apimgt.impl.dto.WorkflowProperties;
 import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
@@ -85,7 +87,12 @@ import org.wso2.carbon.apimgt.impl.notification.NotifierConstants;
 import org.wso2.carbon.apimgt.impl.template.APITemplateBuilder;
 import org.wso2.carbon.apimgt.impl.template.APITemplateException;
 import org.wso2.carbon.apimgt.impl.utils.APIUtil;
-import org.wso2.carbon.apimgt.impl.workflow.*;
+import org.wso2.carbon.apimgt.impl.workflow.APIStateChangeSimpleWorkflowExecutor;
+import org.wso2.carbon.apimgt.impl.workflow.WorkflowConstants;
+import org.wso2.carbon.apimgt.impl.workflow.WorkflowException;
+import org.wso2.carbon.apimgt.impl.workflow.WorkflowExecutor;
+import org.wso2.carbon.apimgt.impl.workflow.WorkflowExecutorFactory;
+import org.wso2.carbon.apimgt.impl.workflow.WorkflowStatus;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.governance.api.common.dataobjects.GovernanceArtifact;
 import org.wso2.carbon.governance.api.exception.GovernanceException;
@@ -128,8 +135,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+
 import javax.cache.Caching;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLInputFactory;
@@ -142,6 +151,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.wso2.carbon.apimgt.impl.token.ClaimsRetriever.DEFAULT_DIALECT_URI;
 
 @RunWith(PowerMockRunner.class)
 @SuppressStaticInitializationFor("org.wso2.carbon.context.PrivilegedCarbonContext")
@@ -149,7 +159,7 @@ import static org.mockito.Matchers.any;
         GovernanceUtils.class, PrivilegedCarbonContext.class, WorkflowExecutorFactory.class, JavaUtils.class,
         APIProviderImpl.class, APIManagerFactory.class, RegistryUtils.class, ThrottlePolicyDeploymentManager.class,
         LifecycleBeanPopulator.class, Caching.class, PaginationContext.class, MultitenantUtils.class,
-        AbstractAPIManager.class, OASParserUtil.class, KeyManagerHolder.class })
+        AbstractAPIManager.class, OASParserUtil.class, KeyManagerHolder.class, CertificateManagerImpl.class })
 public class APIProviderImplTest {
 
     private static String EP_CONFIG_WSDL = "{\"production_endpoints\":{\"url\":\"http://ws.cdyne.com/phoneverify/phoneverify.asmx?wsdl\""
@@ -161,6 +171,8 @@ public class APIProviderImplTest {
     private GenericArtifactManager artifactManager;
     private APIGatewayManager gatewayManager;
     private GenericArtifact artifact;
+    private CertificateManagerImpl certificateManager;
+    private APIManagerConfiguration config;
 
     @Before
     public void init() throws Exception {
@@ -177,12 +189,15 @@ public class APIProviderImplTest {
         PowerMockito.mockStatic(PaginationContext.class);
         PowerMockito.mockStatic(APIUtil.class);
         PowerMockito.mockStatic(APIGatewayManager.class);
+        PowerMockito.mockStatic(CertificateManagerImpl.class);
 
         apimgtDAO = Mockito.mock(ApiMgtDAO.class);
         keyManager = Mockito.mock(KeyManager.class);
+        certificateManager = Mockito.mock(CertificateManagerImpl.class);
         Mockito.when(keyManager.getResourceByApiId(Mockito.anyString())).thenReturn(null);
         Mockito.when(keyManager.registerNewResource(Mockito.any(API.class), Mockito.any(Map.class))).thenReturn(true);
-        PowerMockito.when(KeyManagerHolder.getKeyManagerInstance()).thenReturn(keyManager);
+        PowerMockito.when(KeyManagerHolder.getKeyManagerInstance(Mockito.anyString())).thenReturn(keyManager);
+        PowerMockito.when(CertificateManagerImpl.getInstance()).thenReturn(certificateManager);
 
         PowerMockito.when(APIUtil.isAPIManagementEnabled()).thenReturn(false);
         PowerMockito.when(APIUtil.replaceEmailDomainBack(Mockito.anyString())).thenReturn("admin");
@@ -209,6 +224,15 @@ public class APIProviderImplTest {
         TestUtils.mockAPICacheClearence();
         TestUtils.mockAPIMConfiguration();
         mockDocumentationCreation();
+
+        config = Mockito.mock(APIManagerConfiguration.class);
+        APIManagerConfigurationService apiManagerConfigurationService = new APIManagerConfigurationServiceImpl(config);
+        ServiceReferenceHolder.getInstance().setAPIManagerConfigurationService(apiManagerConfigurationService);
+        APIManagerConfiguration config = ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService()
+                .getAPIManagerConfiguration();
+        GatewayArtifactSynchronizerProperties synchronizerProperties = new GatewayArtifactSynchronizerProperties();
+        Mockito.when(config.getGatewayArtifactSynchronizerProperties()).thenReturn(synchronizerProperties);
+
         PowerMockito.when(APIUtil.replaceSystemProperty(Mockito.anyString())).thenAnswer((Answer<String>) invocation -> {
             Object[] args = invocation.getArguments();
             return (String) args[0];
@@ -850,6 +874,39 @@ public class APIProviderImplTest {
     }
 
     @Test
+    public void testGetSubscriberClaims() throws APIManagementException, UserStoreException {
+        String configuredClaims = "http://wso2.org/claim1,http://wso2.org/claim2";
+        APIProviderImplWrapper apiProvider = new APIProviderImplWrapper(apimgtDAO, null, null);
+        // Mock retrieving the tenant domain
+        PowerMockito.mockStatic(MultitenantUtils.class);
+        PowerMockito.mockStatic(APIUtil.class);
+        Mockito.when(MultitenantUtils.getTenantDomain("admin")).thenReturn("carbon.super");
+        ServiceReferenceHolder serviceReferenceHolder = TestUtils.getServiceReferenceHolder();
+        RealmService realmService = Mockito.mock(RealmService.class);
+        TenantManager tenantManager = Mockito.mock(TenantManager.class);
+        PowerMockito.when(ServiceReferenceHolder.getInstance()).thenReturn(serviceReferenceHolder);
+        Mockito.when(serviceReferenceHolder.getRealmService()).thenReturn(realmService);
+        Mockito.when(realmService.getTenantManager()).thenReturn(tenantManager);
+        PowerMockito.when(tenantManager.getTenantId(Matchers.anyString())).thenReturn(-1234);
+
+        SortedMap<String, String> claimValues = new TreeMap<String, String>();
+        claimValues.put("claim1", "http://wso2.org/claim1");
+        claimValues.put("claim2", "http://wso2.org/claim2");
+        claimValues.put("claim3", "http://wso2.org/claim3");
+        PowerMockito.when(APIUtil.getClaims("admin", -1234, DEFAULT_DIALECT_URI))
+                .thenReturn(claimValues);
+        APIManagerConfiguration configuration = Mockito.mock(APIManagerConfiguration.class);
+        APIManagerConfigurationService configurationService = Mockito.mock(APIManagerConfigurationService.class);
+        PowerMockito.when(serviceReferenceHolder.getAPIManagerConfigurationService()).thenReturn(configurationService);
+        PowerMockito.when(configurationService.getAPIManagerConfiguration()).thenReturn(configuration);
+        Mockito.when(configuration.getFirstProperty(APIConstants.API_PUBLISHER_SUBSCRIBER_CLAIMS)).
+                thenReturn(configuredClaims);
+        Map subscriberClaims = apiProvider.getSubscriberClaims("admin");
+        assertNotNull(subscriberClaims);
+        assertEquals(configuredClaims.split(",").length, subscriberClaims.size());
+    }
+
+    @Test
     public void testAddTier() throws APIManagementException, RegistryException {
         APIProviderImplWrapper apiProvider = new APIProviderImplWrapper(apimgtDAO, null, null);
         Tier tier = new Tier("testTier");
@@ -1094,8 +1151,9 @@ public class APIProviderImplTest {
         Mockito.when(registryService.getConfigSystemRegistry(Mockito.anyInt())).thenReturn(userRegistry);
         Mockito.when(serviceReferenceHolder.getRealmService()).thenReturn(realmService);
         Mockito.when(realmService.getTenantManager()).thenReturn(tenantManager);
-        Mockito.doNothing().when(apimgtDAO).addAPI(api, -1234);
-
+        Mockito.when(apimgtDAO.addAPI(api, -1234)).thenReturn(1);
+        Mockito.doNothing().when(apimgtDAO).addURITemplates(1, api, -1234);
+        Mockito.doNothing().when(keyManager).attachResourceScopes(api, api.getUriTemplates());
         try {
             apiProvider.addAPI(api);
         } catch (Exception e) {
@@ -1483,7 +1541,9 @@ public class APIProviderImplTest {
         UserRegistry configRegistry = Mockito.mock(UserRegistry.class);
         RegistryService registryService = Mockito.mock(RegistryService.class);
         PowerMockito.when(ApiMgtDAO.getInstance()).thenReturn(apimgtDAO);
-        Mockito.doNothing().when(apimgtDAO).addAPI(api, -1);
+        Mockito.when(apimgtDAO.addAPI(api, -1)).thenReturn(1);
+        Mockito.doNothing().when(apimgtDAO).addURITemplates(1, api, -1);
+        Mockito.doNothing().when(keyManager).attachResourceScopes(api, api.getUriTemplates());
 
         PowerMockito.mockStatic(APIUtil.class);
         PowerMockito.when(APIUtil.replaceEmailDomain(apiId.getProviderName())).thenReturn("admin");
@@ -1601,7 +1661,9 @@ public class APIProviderImplTest {
         NotificationDTO notificationDTO = PowerMockito.mock(NotificationDTO.class);
         UserRegistry configRegistry = PowerMockito.mock(UserRegistry.class);
         RegistryService registryService = PowerMockito.mock(RegistryService.class);
-        PowerMockito.doNothing().when(apimgtDAO).addAPI(api, -1);
+        Mockito.when(apimgtDAO.addAPI(api, -1)).thenReturn(1);
+        Mockito.doNothing().when(apimgtDAO).addURITemplates(1, api, -1);
+        Mockito.doNothing().when(keyManager).attachResourceScopes(api, api.getUriTemplates());
         Mockito.when(artifactManager.newGovernanceArtifact(Matchers.any(QName.class))).thenReturn(artifact);
         Mockito.when(APIUtil.createAPIArtifactContent(artifact, api)).thenReturn(artifact);
         Map<String, String> failedToPubGWEnv = new HashMap<String, String>();
@@ -2171,7 +2233,6 @@ public class APIProviderImplTest {
         APIProviderImplWrapper apiProvider = new APIProviderImplWrapper(apimgtDAO, null, null);
 
         prepareForChangeLifeCycleStatus(apiProvider, apimgtDAO, apiId, artifact);
-
         APIStateChangeResponse response1 = apiProvider.
                 changeLifeCycleStatus(apiId, APIConstants.API_LC_ACTION_DEPRECATE);
         Assert.assertEquals("APPROVED", response1.getStateChangeStatus());
@@ -2371,6 +2432,11 @@ public class APIProviderImplTest {
             }
         }).when(artifactManager).updateGenericArtifact(artifact);
 
+        APIManagerConfiguration config = ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService()
+                .getAPIManagerConfiguration();
+        GatewayArtifactSynchronizerProperties synchronizerProperties = new GatewayArtifactSynchronizerProperties();
+        Mockito.when(config.getGatewayArtifactSynchronizerProperties()).thenReturn(synchronizerProperties);
+
         Mockito.when(gatewayManager.isAPIPublished(api, "carbon.super")).thenReturn(false);
         Mockito.when(APIUtil.getTiers(APIConstants.TIER_RESOURCE_TYPE, "carbon.super")).thenReturn(tiers);
         apiProvider.updateAPI(api);
@@ -2539,6 +2605,10 @@ public class APIProviderImplTest {
         PowerMockito.mockStatic(OASParserUtil.class);
         Mockito.when(OASParserUtil.getAPIDefinition(api.getId(), apiProvider.registry)).thenReturn(
                 "{\"info\": {\"swagger\":\"data\"}}");
+        APIManagerConfiguration config = ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService()
+                .getAPIManagerConfiguration();
+        GatewayArtifactSynchronizerProperties synchronizerProperties = new GatewayArtifactSynchronizerProperties();
+        Mockito.when(config.getGatewayArtifactSynchronizerProperties()).thenReturn(synchronizerProperties);
         apiProvider.updateAPI(api);
         Assert.assertEquals(1, api.getEnvironments().size());
         Assert.assertEquals(true, api.getEnvironments().contains("SANDBOX"));
@@ -2793,6 +2863,10 @@ public class APIProviderImplTest {
         PowerMockito.mockStatic(OASParserUtil.class);
         Mockito.when(OASParserUtil.getAPIDefinition(api.getId(), apiProvider.registry)).thenReturn(
                 "{\"info\": {\"swagger\":\"data\"}}");
+        APIManagerConfiguration config = ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService()
+                .getAPIManagerConfiguration();
+        GatewayArtifactSynchronizerProperties synchronizerProperties = new GatewayArtifactSynchronizerProperties();
+        Mockito.when(config.getGatewayArtifactSynchronizerProperties()).thenReturn(synchronizerProperties);
         apiProvider.updateAPI(api);
     }
 
@@ -2957,14 +3031,20 @@ public class APIProviderImplTest {
     @Test
     public void testAddPolicy_APPType() throws RegistryException, UserStoreException, APIManagementException {
         ApplicationPolicy policy = getPolicyAppLevel();
+        ApplicationPolicy returndPolicy = new ApplicationPolicy(policy.getPolicyName());
+        returndPolicy.setPolicyId(1);
         APIProviderImplWrapper apiProvider = new APIProviderImplWrapper(apimgtDAO, null, null);
+        Mockito.when(apimgtDAO.getApplicationPolicy(policy.getPolicyName(), policy.getTenantId())).thenReturn(policy);
         apiProvider.addPolicy(policy);
     }
 
     @Test
     public void testAddPolicy_SubsType() throws RegistryException, UserStoreException, APIManagementException {
         SubscriptionPolicy policy = getPolicySubscriptionLevelperUser();
+        SubscriptionPolicy returndPolicy = new SubscriptionPolicy(policy.getPolicyName());
+        returndPolicy.setPolicyId(2);
         APIProviderImplWrapper apiProvider = new APIProviderImplWrapper(apimgtDAO, null, null);
+        Mockito.when(apimgtDAO.getSubscriptionPolicy(policy.getPolicyName(), policy.getTenantId())).thenReturn(policy);
         apiProvider.addPolicy(policy);
     }
 
@@ -4203,6 +4283,7 @@ public class APIProviderImplTest {
         Mockito.when(apiArtifact.getAttribute(APIConstants.API_OVERVIEW_PROVIDER)).thenReturn("admin");
         Mockito.when(apiArtifact.getAttribute(APIConstants.API_OVERVIEW_NAME)).thenReturn("API1");
         Mockito.when(apiArtifact.getAttribute(APIConstants.API_OVERVIEW_VERSION)).thenReturn("1.0.0");
+        Mockito.when(apiArtifact.getAttribute(APIConstants.API_OVERVIEW_DEPLOYMENTS)).thenReturn("[]");
         Mockito.when(apiArtifact.getLifecycleState()).thenReturn("CREATED");
         Mockito.when(apimgtDAO.getAPIID(apiId, null)).thenReturn(1);
 
@@ -4405,7 +4486,8 @@ public class APIProviderImplTest {
                 + "\"apim:subscription_view\",\"Roles\":\"admin,Internal/creator\"},{\"Name\":"
                 + "\"apim:subscription_block\",\"Roles\":\"admin,Internal/creator\"},{\"Name\":"
                 + "\"apim:mediation_policy_view\",\"Roles\":\"admin\"},{\"Name\":\"apim:mediation_policy_create\","
-                + "\"Roles\":\"admin\"},{\"Name\":\"apim:api_workflow\",\"Roles\":\"admin\"}]},\"NotificationsEnabled\":"
+                + "\"Roles\":\"admin\"},{\"Name\":\"apim:api_workflow_approve\",\"Roles\":\"admin\"},{\"Name\":"
+                + "\"apim:apim:api_workflow_view\",\"Roles\":\"admin\"}]},\"NotificationsEnabled\":"
                 + "\"true\",\"Notifications\":[{\"Type\":\"new_api_version\",\"Notifiers\":[{\"Class\":"
                 + "\"org.wso2.carbon.apimgt.impl.notification.NewAPIVersionEmailNotifier\",\"ClaimsRetrieverImplClass\":"
                 + "\"org.wso2.carbon.apimgt.impl.token.DefaultClaimsRetriever\",\"Title\":\"Version $2 of $1 Released\","

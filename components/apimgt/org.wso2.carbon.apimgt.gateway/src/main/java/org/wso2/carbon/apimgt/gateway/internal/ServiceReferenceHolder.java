@@ -16,15 +16,19 @@
 
 package org.wso2.carbon.apimgt.gateway.internal;
 
-
 import org.apache.axis2.context.ConfigurationContext;
 import org.wso2.carbon.apimgt.gateway.handlers.security.jwt.generator.AbstractAPIMgtGatewayJWTGenerator;
-import org.wso2.carbon.apimgt.gateway.handlers.security.jwt.transformer.JWTTransformer;
 import org.wso2.carbon.apimgt.gateway.throttling.ThrottleDataHolder;
 import org.wso2.carbon.apimgt.gateway.throttling.publisher.ThrottleDataPublisher;
 import org.wso2.carbon.apimgt.impl.APIManagerConfiguration;
 import org.wso2.carbon.apimgt.impl.APIManagerConfigurationService;
+import org.wso2.carbon.apimgt.impl.caching.CacheInvalidationService;
 import org.wso2.carbon.apimgt.impl.dto.ThrottleProperties;
+import org.wso2.carbon.apimgt.impl.jwt.JWTValidationService;
+import org.wso2.carbon.apimgt.impl.gatewayartifactsynchronizer.ArtifactRetriever;
+import org.wso2.carbon.apimgt.impl.keymgt.KeyManagerDataService;
+import org.wso2.carbon.apimgt.impl.throttling.APIThrottleDataService;
+import org.wso2.carbon.apimgt.impl.token.RevokedTokenService;
 import org.wso2.carbon.apimgt.tracing.TracingService;
 import org.wso2.carbon.apimgt.tracing.TracingTracer;
 import org.wso2.carbon.base.api.ServerConfigurationService;
@@ -36,9 +40,7 @@ import org.wso2.carbon.sequences.services.SequenceAdmin;
 import org.wso2.carbon.utils.ConfigurationContextService;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 public class ServiceReferenceHolder {
 
@@ -58,14 +60,21 @@ public class ServiceReferenceHolder {
     private MediationSecurityAdminService mediationSecurityAdminService;
     private ThrottleDataPublisher throttleDataPublisher;
     private Map<String,AbstractAPIMgtGatewayJWTGenerator> apiMgtGatewayJWTGenerators  = new HashMap<>();
-    private Map<String, JWTTransformer> jwtTransformerMap = new HashMap<>();
     private TracingTracer tracer;
+    private CacheInvalidationService cacheInvalidationService;
+    private RevokedTokenService revokedTokenService;
+    private APIThrottleDataService throttleDataService;
+
+    private JWTValidationService jwtValidationService;
+    private KeyManagerDataService keyManagerDataService;
+
     public void setThrottleDataHolder(ThrottleDataHolder throttleDataHolder) {
         this.throttleDataHolder = throttleDataHolder;
     }
     public ThrottleDataHolder getThrottleDataHolder() {
         return throttleDataHolder;
     }
+    private ArtifactRetriever artifactRetriever;
 
     private ServiceReferenceHolder() {
 
@@ -97,6 +106,9 @@ public class ServiceReferenceHolder {
 
     public void setAPIManagerConfigurationService(APIManagerConfigurationService amConfigService) {
         this.amConfigService = amConfigService;
+        if (amConfigService != null && amConfigService.getAPIManagerConfiguration() != null){
+            setThrottleProperties(amConfigService.getAPIManagerConfiguration().getThrottleProperties());
+        }
     }
 
     public ThrottleProperties getThrottleProperties() {
@@ -206,11 +218,6 @@ public class ServiceReferenceHolder {
         return apiMgtGatewayJWTGenerators;
     }
 
-    public Map<String, JWTTransformer> getJwtTransformerMap() {
-
-        return jwtTransformerMap;
-    }
-
     public TracingTracer getTracer() {
 
         return tracer;
@@ -219,5 +226,64 @@ public class ServiceReferenceHolder {
     public void setTracer(TracingTracer tracer) {
 
         this.tracer = tracer;
+    }
+
+    public JWTValidationService getJwtValidationService() {
+
+        return jwtValidationService;
+    }
+
+    public void setJwtValidationService(JWTValidationService jwtValidationService) {
+
+        this.jwtValidationService = jwtValidationService;
+    }
+
+    public ArtifactRetriever getArtifactRetriever() {
+
+        return artifactRetriever;
+    }
+
+    public void setArtifactRetriever(ArtifactRetriever artifactRetriever) {
+
+        this.artifactRetriever = artifactRetriever;
+    }
+    public void setCacheInvalidationService(CacheInvalidationService cacheInvalidationService) {
+        this.cacheInvalidationService = cacheInvalidationService;
+
+    }
+
+    public CacheInvalidationService getCacheInvalidationService() {
+
+        return cacheInvalidationService;
+    }
+
+    public void setRevokedTokenService(RevokedTokenService revokedTokenService) {
+        this.revokedTokenService = revokedTokenService;
+    }
+
+    public RevokedTokenService getRevokedTokenService() {
+
+        return revokedTokenService;
+    }
+    public void setAPIThrottleDataService(APIThrottleDataService dataService) {
+        if (dataService != null) {
+            throttleDataService = dataService;
+        } else {
+            throttleDataService = null;
+        }
+    }
+
+    public APIThrottleDataService getAPIThrottleDataService() {
+        return throttleDataService;
+    }
+
+    public KeyManagerDataService getKeyManagerDataService() {
+
+        return keyManagerDataService;
+    }
+
+    public void setKeyManagerDataService(KeyManagerDataService keyManagerDataService) {
+
+        this.keyManagerDataService = keyManagerDataService;
     }
 }

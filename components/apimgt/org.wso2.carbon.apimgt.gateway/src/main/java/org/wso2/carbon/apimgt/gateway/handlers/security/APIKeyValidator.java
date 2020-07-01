@@ -58,6 +58,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+
 import javax.cache.Cache;
 
 /**
@@ -128,12 +129,16 @@ public class APIKeyValidator {
      * @param context    API context
      * @param apiKey     API key to be validated
      * @param apiVersion API version number
+     * @param keyManagers list of key managers to authenticate the API
      * @return An APIKeyValidationInfoDTO object
      * @throws APISecurityException If an error occurs while accessing backend services
      */
     public APIKeyValidationInfoDTO getKeyValidationInfo(String context, String apiKey,
-                                                        String apiVersion, String authenticationScheme, String clientDomain,
-                                                        String matchingResource, String httpVerb, boolean defaultVersionInvoked) throws APISecurityException {
+                                                        String apiVersion, String authenticationScheme,
+                                                        String clientDomain,
+                                                        String matchingResource, String httpVerb,
+                                                        boolean defaultVersionInvoked, List<String> keyManagers)
+            throws APISecurityException {
 
         String prefixedVersion = apiVersion;
         //Check if client has invoked the default version API.
@@ -182,12 +187,12 @@ public class APIKeyValidator {
             }
         }
 
+        String tenantDomain = getTenantDomain();
         APIKeyValidationInfoDTO info = doGetKeyValidationInfo(context, prefixedVersion, apiKey, authenticationScheme, clientDomain,
-                matchingResource, httpVerb);
+                matchingResource, httpVerb, tenantDomain, keyManagers);
         if (info != null) {
             if (gatewayKeyCacheEnabled) {
                 //Get the tenant domain of the API that is being invoked.
-                String tenantDomain = getTenantDomain();
 
                 if (info.getValidationStatus() == APIConstants.KeyValidationStatus.API_AUTH_INVALID_CREDENTIALS) {
                     // if Token is not valid token (expired,invalid,revoked) put into invalid token cache
@@ -245,10 +250,12 @@ public class APIKeyValidator {
 
     protected APIKeyValidationInfoDTO doGetKeyValidationInfo(String context, String apiVersion, String apiKey,
                                                              String authenticationScheme, String clientDomain,
-                                                             String matchingResource, String httpVerb) throws APISecurityException {
+                                                             String matchingResource, String httpVerb,
+                                                             String tenantDomain, List<String> keyManagers)
+            throws APISecurityException {
 
         return dataStore.getAPIKeyData(context, apiVersion, apiKey, authenticationScheme, clientDomain,
-                matchingResource, httpVerb);
+                matchingResource, httpVerb, tenantDomain, keyManagers);
     }
 
     public void cleanup() {
@@ -706,18 +713,6 @@ public class APIKeyValidator {
         if (uriTemplates == null) {
             synchronized (this) {
                 if (uriTemplates == null) {
-                    String swagger = (String) messageContext.getProperty(APIMgtGatewayConstants.OPEN_API_STRING);
-                    if (swagger != null) {
-                        APIDefinition oasParser;
-                        try {
-                            oasParser = OASParserUtil.getOASParser(swagger);
-                            uriTemplates = new ArrayList<>();
-                            uriTemplates.addAll(oasParser.getURITemplates(swagger));
-                            return uriTemplates;
-                        } catch (APIManagementException e) {
-                            log.error("Error while parsing swagger content to get URI Templates", e);
-                        }
-                    }
                     uriTemplates = dataStore.getAllURITemplates(context, apiVersion);
                 }
             }
@@ -754,8 +749,9 @@ public class APIKeyValidator {
         isGatewayAPIResourceValidationEnabled = gatewayAPIResourceValidationEnabled;
     }
 
-    public APIKeyValidationInfoDTO validateSubscription(String context, String version, String consumerKey)
+    public APIKeyValidationInfoDTO validateSubscription(String context, String version, String consumerKey,
+                                                        String tenantDomain, String keyManager)
             throws APISecurityException {
-        return dataStore.validateSubscription(context, version, consumerKey);
+        return dataStore.validateSubscription(context, version, consumerKey,tenantDomain, keyManager);
     }
 }

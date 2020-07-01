@@ -101,7 +101,7 @@ class LifeCycleUpdate extends Component {
         }
         promisedUpdate
             .then((response) => {
-                /* TODO: Handle IO erros ~tmkb */
+            /* TODO: Handle IO erros ~tmkb */
                 this.props.handleUpdate(true);
                 const newState = response.body.lifecycleState.state;
                 const { workflowStatus } = response.body;
@@ -147,11 +147,35 @@ class LifeCycleUpdate extends Component {
      */
     updateLifeCycleState(event) {
         event.preventDefault();
-        const action = event.currentTarget.getAttribute('data-value');
+        let action = event.currentTarget.getAttribute('data-value');
+        if (action === 'Deploy To Test') {
+            action = 'Deploy as a Prototype';
+        }
         const {
             api: { id: apiUUID },
         } = this.props;
         this.updateLCStateOfAPI(apiUUID, action);
+        this.enableStore();
+    }
+
+    /**
+     *
+     * Set true the enableStore Property.
+     * @memberof disableStore
+     */
+    enableStore() {
+        const api = new API();
+        const { id } = this.props.api;
+        const promisedApi = api.get(id);
+        promisedApi
+            .then((getResponse) => {
+                const apiData = getResponse.body;
+                apiData.enableStore = true;
+                this.context.updateAPI({ enableStore: true });
+            })
+            .catch((errorResponse) => {
+                console.error(errorResponse);
+            });
     }
 
     /**

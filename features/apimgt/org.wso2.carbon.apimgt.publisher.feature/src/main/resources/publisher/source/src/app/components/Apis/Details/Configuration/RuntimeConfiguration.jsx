@@ -31,7 +31,7 @@ import ArrowForwardIcon from '@material-ui/icons/ArrowForward';
 import ArrowBackIcon from '@material-ui/icons/ArrowBack';
 import isEmpty from 'lodash/isEmpty';
 import cloneDeep from 'lodash.clonedeep';
-
+import Api from 'AppData/api';
 import { APIContext } from 'AppComponents/Apis/Details/components/ApiContext';
 import { isRestricted } from 'AppData/AuthManager';
 import ResponseCaching from './components/ResponseCaching';
@@ -41,7 +41,8 @@ import MaxBackendTps from './components/MaxBackendTps';
 import Flow from './components/Flow';
 import Endpoints from './components/Endpoints';
 import APISecurity from './components/APISecurity/APISecurity';
-
+import QueryAnalysis from './components/QueryAnalysis';
+import KeyManager from './components/KeyManager';
 import {
     DEFAULT_API_SECURITY_OAUTH2,
     API_SECURITY_BASIC_AUTH,
@@ -123,6 +124,7 @@ const useStyles = makeStyles((theme) => ({
  * @returns {Object} Deep copy of an object
  */
 function copyAPIConfig(api) {
+    const keyManagers = api.type === 'APIProduct' ? ['all'] : [...api.keyManagers];
     return {
         id: api.id,
         name: api.name,
@@ -149,6 +151,7 @@ function copyAPIConfig(api) {
             accessControlAllowHeaders: [...api.corsConfiguration.accessControlAllowHeaders],
             accessControlAllowMethods: [...api.corsConfiguration.accessControlAllowMethods],
         },
+        keyManagers,
     };
 }
 /**
@@ -265,12 +268,23 @@ export default function RuntimeConfiguration() {
                     nextState.corsConfiguration[action] = event.checked === false ? [] : event.value;
                 }
                 return nextState;
+            case 'keymanagers':
+                nextState.keyManagers = value;
+                return nextState;
+            case 'allKeyManagersEnabled':
+                if (value) {
+                    nextState.keyManagers = [];
+                } else {
+                    nextState.keyManagers = ['all'];
+                }
+                return nextState;
             default:
                 return state;
         }
     }
     const { api, updateAPI } = useContext(APIContext);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [updateComplexityList, setUpdateComplexityList] = useState(null);
     const [apiConfig, configDispatcher] = useReducer(configReducer, copyAPIConfig(api));
     const classes = useStyles();
     const mediationPolicies = cloneDeep(api.mediationPolicies || []);
@@ -300,6 +314,29 @@ export default function RuntimeConfiguration() {
     const updateFaultMediationPolicy = (policy) => {
         setFaultPolicy({ id: policy.id, name: policy.name, type: policy.type });
     };
+
+
+    /**
+     * Update the GraphQL Query Complexity Values
+     */
+    function updateComplexity() {
+        const apiId = apiConfig.id;
+        const apiClient = new Api();
+        const promisedComplexity = apiClient.updateGraphqlPoliciesComplexity(
+            apiId, {
+                list: updateComplexityList,
+            },
+        );
+        promisedComplexity
+            .catch((error) => {
+                const { response } = error;
+                if (response.body) {
+                    const { description } = response.body;
+                    Alert.error(description);
+                }
+            });
+    }
+
     /**
      *
      * Handle the configuration view save button action
@@ -310,6 +347,10 @@ export default function RuntimeConfiguration() {
         if (!api.isAPIProduct()) {
             apiConfig.mediationPolicies = newMediationPolicies;
         }
+        if (updateComplexityList !== null) {
+            updateComplexity();
+        }
+
         updateAPI(apiConfig)
             .catch((error) => {
                 if (error.response) {
@@ -348,6 +389,8 @@ export default function RuntimeConfiguration() {
                                 <Paper className={classes.paper} elevation={0}>
                                     <APISecurity api={apiConfig} configDispatcher={configDispatcher} />
                                     <CORSConfiguration api={apiConfig} configDispatcher={configDispatcher} />
+                                    <KeyManager api={apiConfig} configDispatcher={configDispatcher} />
+
                                     {api.type !== 'GRAPHQL'
                                         && <SchemaValidation api={apiConfig} configDispatcher={configDispatcher} />}
                                     {!api.isAPIProduct() && (
@@ -358,6 +401,15 @@ export default function RuntimeConfiguration() {
                                             selectedMediationPolicy={inPolicy}
                                             isRestricted={isRestricted(['apim:api_create'], api)}
                                         />
+                                    )}
+                                    {api.type === 'GRAPHQL' && (
+                                        <Box mt={3}>
+                                            <QueryAnalysis
+                                                api={apiConfig}
+                                                setUpdateComplexityList={setUpdateComplexityList}
+                                                isRestricted={isRestricted(['apim:api_create'], api)}
+                                            />
+                                        </Box>
                                     )}
                                 </Paper>
                                 <ArrowForwardIcon className={classes.arrowForwardIcon} />

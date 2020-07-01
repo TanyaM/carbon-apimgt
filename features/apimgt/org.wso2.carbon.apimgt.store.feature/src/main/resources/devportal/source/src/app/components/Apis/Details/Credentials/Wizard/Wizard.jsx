@@ -39,7 +39,13 @@ const styles = (theme) => ({
         marginLeft: theme.spacing(3),
         paddingTop: theme.spacing(2),
         paddingBottom: theme.spacing(2),
+        color: theme.palette.getContrastText(theme.palette.background.default),
     },
+    boxWrapper: {
+        '& span, & h5, & label, & td, & li, & div, & input, & p.MuiFormHelperText-root': {
+            color: theme.palette.getContrastText(theme.palette.background.paper),
+        }
+    }
 });
 
 const stepComponents = [CreateAppStep, SubscribeToAppStep, GenerateKeysStep,
@@ -87,6 +93,7 @@ class Wizard extends Component {
             createdToken: null,
             redirect: false,
             createdKeyType: '',
+            createdSelectedTab: '',
             stepStatus: 'PROCEED',
         };
     }
@@ -122,6 +129,14 @@ class Wizard extends Component {
      */
     setCreatedKeyType = (createdKeyType) => {
         this.setState({ createdKeyType });
+    }
+
+    /**
+     * Set the created selectedTab from step 3
+     * @param {*} selectedTab token created
+     */
+    setCreatedSelectedTab = (createdSelectedTab) => {
+        this.setState({ createdSelectedTab });
     }
 
     /**
@@ -173,7 +188,7 @@ class Wizard extends Component {
                             </Stepper>
                         </Grid>
                     </Box>
-                    <Box py={1} mx='auto' display='block' >
+                    <Box py={1} mx='auto' display='block' className={classes.boxWrapper}>
                         {stepStatus === this.stepStatuses.PROCEED && (
                             <>
                                 <CurrentStepComponent
@@ -184,6 +199,7 @@ class Wizard extends Component {
                                     classes={classes}
                                     setCreatedApp={this.setCreatedApp}
                                     setCreatedKeyType={this.setCreatedKeyType}
+                                    setCreatedSelectedTab={this.setCreatedSelectedTab}
                                     setCreatedToken={this.setCreatedToken}
                                     handleReset={this.handleReset}
                                 />

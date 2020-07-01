@@ -19,6 +19,8 @@
 import React, { lazy, Suspense } from 'react';
 import PropTypes from 'prop-types';
 import { withStyles } from '@material-ui/core/styles';
+import ArrowBackIosIcon from '@material-ui/icons/ArrowBackIos';
+import ArrowForwardIosIcon from '@material-ui/icons/ArrowForwardIos';
 import {
     Route, Switch, Redirect, Link, withRouter,
 } from 'react-router-dom';
@@ -38,6 +40,7 @@ import InfoBar from './InfoBar';
 import { ApiContext } from './ApiContext';
 import Progress from '../../Shared/Progress';
 import Wizard from './Credentials/Wizard/Wizard';
+import User from '../../../data/User';
 
 
 const ApiConsole = lazy(() => import('./ApiConsole/ApiConsole' /* webpackChunkName: "APIConsole" */));
@@ -92,6 +95,8 @@ const styles = (theme) => {
     } = theme;
     const shiftToLeft = position === 'vertical-left' ? width : 0;
     const shiftToRight = position === 'vertical-right' ? width : 0;
+    const shiftToLeftMinView = position === 'vertical-left' ? 45 : 0;
+    const shiftToRightMinView = position === 'vertical-right' ? 45 : 0;
     const leftMenuPaddingLeft = position === 'horizontal' ? theme.spacing(3) : 0;
 
     return {
@@ -116,7 +121,13 @@ const styles = (theme) => {
             width: theme.custom.leftMenu.width,
             top: 0,
             left: 0,
-            overflowY: 'auto',
+            overflowY: 'auto', 
+        },
+        leftMenuVerticalLeftMinView: {
+            width: 45,
+            top: 0,
+            left: 0,
+            overflowY: 'auto',  
         },
         leftMenuVerticalRight: {
             width: theme.custom.leftMenu.width,
@@ -149,10 +160,26 @@ const styles = (theme) => {
         content: {
             display: 'flex',
             flex: 1,
+            flexGrow: 1,
             flexDirection: 'column',
             marginLeft: shiftToLeft,
             marginRight: shiftToRight,
             paddingBottom: theme.spacing(3),
+            overflowX: 'hidden',
+        },
+        contentExpandView: {
+            display: 'flex',
+            flex: 1,
+            flexGrow: 1,
+            flexDirection: 'column',
+            marginLeft: shiftToLeftMinView,
+            marginRight: shiftToRightMinView,
+            paddingBottom: theme.spacing(3),
+            overflowX: 'hidden', 
+            minHeight: 'calc(100vh - 114px)',
+        },
+        shiftLeft: {
+            marginLeft: 0,
         },
         contentLoader: {
             paddingTop: theme.spacing(3),
@@ -207,12 +234,17 @@ class Details extends React.Component {
                         Alert.error(message);
                     }
                     console.error('Error when getting apis', error);
-                    if (status === 404) {
+                    if (status === 404 || status === 403) {
                         this.setState({ notFound: true });
                     }
                 });
             const user = AuthManager.getUser();
+            if(user === null){
+                const user1 = new User();
+                this.setState({open:user1.isSideBarOpen});
+            }
             if (user != null) {
+                this.setState({open:user.isSideBarOpen});
                 existingSubscriptions = restApi.getSubscriptions(this.api_uuid, null);
                 promisedApplications = restApi.getAllApplications();
 
@@ -263,6 +295,7 @@ class Details extends React.Component {
             }
         };
 
+
         this.state = {
             active: 'overview',
             overviewHiden: false,
@@ -276,6 +309,8 @@ class Details extends React.Component {
         };
         this.setDetailsAPI = this.setDetailsAPI.bind(this);
         this.api_uuid = this.props.match.params.api_uuid;
+        this.handleDrawerClose = this.handleDrawerClose.bind(this);
+        this.handleDrawerOpen = this.handleDrawerOpen.bind(this);
     }
 
     /**
@@ -286,6 +321,24 @@ class Details extends React.Component {
     componentDidMount() {
         this.updateSubscriptionData();
     }
+
+    handleDrawerOpen() {
+        this.setState({ open: true });  
+        const user = AuthManager.getUser();
+        if(user != null){
+            user.isSideBarOpen = true;
+            AuthManager.setUser(user);
+        }
+    };
+
+    handleDrawerClose() {
+        this.setState({ open: false });
+        const user = AuthManager.getUser();
+        if(user != null){
+            user.isSideBarOpen = false;
+            AuthManager.setUser(user);
+        }
+    };
 
     /**
      *
@@ -309,7 +362,7 @@ class Details extends React.Component {
         } = this.props;
         const user = AuthManager.getUser();
         const { apiUuid } = match.params;
-        const { api, notFound } = this.state;
+        const { api, notFound , open} = this.state;
         const {
             custom: {
                 leftMenu: {
@@ -328,6 +381,9 @@ class Details extends React.Component {
         if (!api && notFound) {
             return <ResourceNotFound />;
         }
+        // check for widget=true in the query params. If it's present we render without <Base> component.
+        const pageUrl = new URL(window.location);
+        const isWidget = pageUrl.searchParams.get('widget');
 
         return api ? (
             <ApiContext.Provider value={this.state}>
@@ -335,19 +391,23 @@ class Details extends React.Component {
                     <title>{`${prefix} ${api.name}${sufix}`}</title>
                 </Helmet>
                 <style>{globalStyle}</style>
+                  {!isWidget && (
                 <div
                     className={classNames(
                         classes.leftMenu,
                         {
-                            [classes.leftMenuHorizontal]: position === 'horizontal',
+                            [classes.leftMenuHorizontal]: position === 'horizontal'
                         },
                         {
-                            [classes.leftMenuVerticalLeft]: position === 'vertical-left',
+                            [classes.leftMenuVerticalLeft]: position === 'vertical-left' && open,
+                            [classes.leftMenuVerticalLeftMinView]: position === 'vertical-left' && !open,
+
                         },
                         {
                             [classes.leftMenuVerticalRight]: position === 'vertical-right',
                         },
                         'left-menu',
+
                     )}
                 >
                     {rootIconVisible && (
@@ -365,62 +425,103 @@ class Details extends React.Component {
                         route='overview'
                         iconText='overview'
                         to={pathPrefix + 'overview'}
+                        open={open}
                     />
                     {!api.advertiseInfo.advertised && (
                         <>
                             {user && showCredentials && (
                                 <>
-                                    <LeftMenuItem
-                                        text={
-                                            <FormattedMessage
-                                                id='Apis.Details.index.subscriptions'
-                                                defaultMessage='Subscriptions'
-                                            />
-                                        }
-                                        route='credentials'
-                                        iconText='credentials'
-                                        to={pathPrefix + 'credentials'}
-                                    />
+                                   
+                                        <LeftMenuItem
+                                            text={
+                                                <FormattedMessage
+                                                    id='Apis.Details.index.subscriptions'
+                                                    defaultMessage='Subscriptions'
+                                                />
+                                            }
+                                            route='credentials'
+                                            iconText='credentials'
+                                            to={pathPrefix + 'credentials'}
+                                            open={open}
+                                        />
+                                    
                                 </>
                             )}
                             {api.type !== 'WS' && showTryout && (
-                                <LeftMenuItem
-                                    text={<FormattedMessage id='Apis.Details.index.try.out' defaultMessage='Try out' />}
-                                    route='test'
-                                    iconText='test'
-                                    to={pathPrefix + 'test'}
-                                />
+                               
+                                    <LeftMenuItem
+                                        text={<FormattedMessage id='Apis.Details.index.try.out'
+                                            defaultMessage='Try out' />}
+                                        route='test'
+                                        iconText='test'
+                                        to={pathPrefix + 'test'}
+                                        open={open}
+                                    />
+                                
                             )}
                             {showComments && (
-                                <LeftMenuItem
-                                    text={
-                                        <FormattedMessage id='Apis.Details.index.comments' defaultMessage='Comments' />
-                                    }
-                                    route='comments'
-                                    iconText='comments'
-                                    to={pathPrefix + 'comments'}
-                                />
+                                
+                                    <LeftMenuItem
+                                        text={
+                                            <FormattedMessage id='Apis.Details.index.comments'
+                                                defaultMessage='Comments' />
+                                        }
+                                        route='comments'
+                                        iconText='comments'
+                                        to={pathPrefix + 'comments'}
+                                        open={open}
+                                    />
+                               
                             )}
                         </>
                     )}
                     {showDocuments && (
-                        <LeftMenuItem
-                            text={<FormattedMessage id='Apis.Details.index.documentation' defaultMessage='Documentation' />}
-                            route='documents'
-                            iconText='docs'
-                            to={pathPrefix + 'documents'}
-                        />
+                       
+                            <LeftMenuItem
+                                text={<FormattedMessage id='Apis.Details.index.documentation'
+                                    defaultMessage='Documentation' />}
+                                route='documents'
+                                iconText='docs'
+                                to={pathPrefix + 'documents'}
+                                open={open}
+                            />
+                       
                     )}
                     {!api.advertiseInfo.advertised && api.type !== 'WS' && showSdks && (
-                        <LeftMenuItem
-                            text={<FormattedMessage id='Apis.Details.index.sdk' defaultMessage='SDKs' />}
-                            route='sdk'
-                            iconText='sdk'
-                            to={pathPrefix + 'sdk'}
-                        />
+                        
+                            <LeftMenuItem
+                                text={<FormattedMessage id='Apis.Details.index.sdk' defaultMessage='SDKs' />}
+                                route='sdk'
+                                iconText='sdk'
+                                to={pathPrefix + 'sdk'}
+                                open={open}
+                            />
+                       
                     )}
+                    {open ? (
+                        <div onClick={this.handleDrawerClose}
+                            style={{ width:100, paddingLeft: '15px', position: 'absolute',bottom: 0, cursor: 'pointer',}}
+                        >
+                            <ArrowBackIosIcon fontSize='medium' style={{ color: 'white' }} />
+                        </div>
+                    ) : (
+                        <div onClick={this.handleDrawerOpen}
+                            style={{ paddingLeft: '15px', position: 'absolute', bottom: 0, cursor: 'pointer',}}
+                        >
+                            <ArrowForwardIosIcon fontSize='medium' style={{ color: 'white' }} />
+                        </div>
+
+                    )}
+
                 </div>
-                <div className={classes.content}>
+                )}
+
+                <div
+                    className={classNames(
+                        { [classes.content]: open },
+                        { [classes.contentExpandView]: !open },
+                    )}
+                >
                     <InfoBar apiId={apiUuid} innerRef={(node) => (this.infoBar = node)} intl={intl} {...this.props} />
                     <div
                         className={classNames(
@@ -428,7 +529,10 @@ class Details extends React.Component {
                             { [classes.contentLoaderRightMenu]: position === 'vertical-right' },
                         )}
                     >
-                        <LoadableSwitch api={api} updateSubscriptionData={this.updateSubscriptionData} />
+                        <LoadableSwitch 
+                            api={api} 
+                            updateSubscriptionData={this.updateSubscriptionData}
+                        />
                     </div>
                 </div>
             </ApiContext.Provider>

@@ -31,9 +31,11 @@
 
     {% if apim.idp is defined %}
     <IdentityProvider>
+        <ServerURL>{{apim.idp.server_url}}</ServerURL>
         <!-- Server URL of the Identity Provider used for login/logout operations in API Publisher and API Developer Portal -->
         <AuthorizeEndpoint>{{apim.idp.authorize_endpoint}}</AuthorizeEndpoint>
         <OIDCLogoutEndpoint>{{apim.idp.oidc_logout_endpoint}}</OIDCLogoutEndpoint>
+        <CheckSessionEndpoint>{{apim.idp.oidc_check_session_endpoint}}</CheckSessionEndpoint>
     </IdentityProvider>
     {% endif %}
 
@@ -59,6 +61,9 @@
              same value is used in the keys for appending the default properties to the
              JWT. -->
         <ConsumerDialectURI>{{apim.jwt.claim_dialect}}</ConsumerDialectURI>
+
+        <!-- Whether to convert claims retrieved from AuthorizationGrantCache to the dialect defined in ConsumerDialectURI -->
+        <ConvertClaimsToConsumerDialect>{{apim.jwt.convert_dialect}}</ConvertClaimsToConsumerDialect>
 
         <!-- Signature algorithm. Accepts "SHA256withRSA" or "NONE". To disable signing explicitly specify "NONE". -->
         <SignatureAlgorithm>{{apim.jwt.signing_algorithm}}</SignatureAlgorithm>
@@ -204,6 +209,10 @@
         {% if apim.cache.restapi_token.expiry_time is defined %}
         <RESTAPITokenCacheExpiry>{{apim.cache.restapi_token.expiry_time}}</RESTAPITokenCacheExpiry>
         {% endif %}
+        <!-- Enable/Disable cache control headers of the Product REST APIs-->
+        <EnableRESTAPICacheControlHeaders>{{apim.cache.restapi_cache_control_headers.enable}}</EnableRESTAPICacheControlHeaders>
+        <!-- MaxAge for the cache control headers of the Product REST APIs -->
+        <RESTAPICacheControlHeadersMaxAge>{{apim.cache.restapi_cache_control_headers.max_age}}</RESTAPICacheControlHeadersMaxAge>
         <!-- This parameter specifies the expiration time of the TagCache. TagCache will
              only be created when this element is uncommented. When the specified
              time duration gets elapsed ,tag cache will get re-generated. -->
@@ -301,15 +310,15 @@
         <Streams>
             <Request>
                 <Name>org.wso2.apimgt.statistics.request</Name>
-                <Version>3.1.0</Version>
+                <Version>3.2.0</Version>
             </Request>
             <Fault>
                 <Name>org.wso2.apimgt.statistics.fault</Name>
-                <Version>3.1.0</Version>
+                <Version>3.2.0</Version>
             </Fault>
             <Throttle>
                 <Name>org.wso2.apimgt.statistics.throttle</Name>
-                <Version>3.1.0</Version>
+                <Version>3.2.0</Version>
             </Throttle>
             <Workflow>
                 <Name>org.wso2.apimgt.statistics.workflow</Name>
@@ -358,31 +367,10 @@
        {% if apim.jwt.expiry_time is defined %}
         <JWTExpiryTime>{{apim.jwt.expiry_time}}</JWTExpiryTime>
        {% endif %}
+     <EnableDefaultKeyManagerRegistration>{{apim.key_manager.enable_registration}}</EnableDefaultKeyManagerRegistration>
+     <EnableKeyManagerConfigurationRetriever>{{apim.key_manager.enable_retriever}}</EnableKeyManagerConfigurationRetriever>
     </APIKeyValidator>
 
-    <!-- Uncomment this section only if you are going to have an instance other than KeyValidator as your KeyManager.
-         Unless a ThirdParty KeyManager is used, you don't need to configure this section. -->
-    {% if apim.key_manager.key_manager_client_impl is defined %}
-    <APIKeyManager>
-        <KeyManagerClientImpl>{{apim.key_manager.key_manager_client_impl}}</KeyManagerClientImpl>
-        <Configuration>
-           {% for property_name,property_value in apim.key_manager.configuration.items() %}
-           <{{property_name}}>{{property_value}}</{{property_name}}>
-           {% endfor %}
-        </Configuration>
-    </APIKeyManager>
-    {% else %}
-    <!--APIKeyManager>
-        <KeyManagerClientImpl>org.wso2.carbon.apimgt.impl.AMDefaultKeyManagerImpl</KeyManagerClientImpl>
-        <Configuration>
-            <ServerURL>https://localhost:${mgt.transport.https.port}${carbon.context}services/</ServerURL>
-            <Username>${admin.username}</Username>
-            <Password>${admin.password}</Password>
-            <TokenURL>https://${carbon.local.ip}:${https.nio.port}/token</TokenURL>
-            <RevokeURL>https://${carbon.local.ip}:${https.nio.port}/revoke</RevokeURL>
-        </Configuration>
-    </APIKeyManager-->
-    {% endif %}
 
     <OAuthConfigurations>
         <!-- Remove OAuth headers from outgoing message. -->
@@ -501,6 +489,9 @@
 
         <!--This parameter specifies the alias value of the Api Key which will be used for Api Key Authentication-->
         <ApiKeyAlias>{{apim.devportal.api_key_alias}}</ApiKeyAlias>
+
+        <!--This parameter specifies whether Anonymous Mode is enabled. By default it is true.-->
+        <EnableAnonymousMode>{{apim.devportal.enable_anonymous_mode}}</EnableAnonymousMode>
     </APIStore>
 
     <APIPublisher>
@@ -515,6 +506,8 @@
         <!--APIsPerPage>30</APIsPerPage-->
         <!-- This property need to be enabled to enable the publisher access control support -->
         <EnableAccessControl>true</EnableAccessControl>
+        <!-- This property is to add the claims that needs to be displayed in Publisher -->
+        <SubscriberClaims>{{apim.publisher.subscriber_claims}}</SubscriberClaims>
     </APIPublisher>
 
     <!-- Status observers can be registered against the API Publisher to listen for
@@ -541,6 +534,11 @@
 
         <!-- Configure Access-Control-Allow-Headers -->
         <Access-Control-Allow-Headers>{% for header in apim.cors.allow_headers %}{{header}}{{ "," if not loop.last }}{% endfor %}</Access-Control-Allow-Headers>
+
+        <!-- Configure Access-Control-Expose-Headers -->
+        {% if apim.cors.expose_headers is defined %}
+            <Access-Control-Expose-Headers>{% for header in apim.cors.expose_headers %}{{header}}{{ "," if not loop.last }}{% endfor %}</Access-Control-Expose-Headers>
+        {% endif %}
 
         <!-- Configure Access-Control-Allow-Credentials -->
         <!-- Specifying this header to true means that the server allows cookies (or other user credentials) to be included on cross-origin requests.
@@ -681,6 +679,14 @@
             </WhiteListedURI>
             <WhiteListedURI>
                 <URI>/api/am/publisher/{version}/settings</URI>
+                <HTTPMethods>GET</HTTPMethods>
+            </WhiteListedURI>
+            <WhiteListedURI>
+                <URI>/api/am/admin/{version}/settings</URI>
+                <HTTPMethods>GET</HTTPMethods>
+            </WhiteListedURI>
+            <WhiteListedURI>
+                <URI>/api/am/endpoint-registry/{version}/settings</URI>
                 <HTTPMethods>GET</HTTPMethods>
             </WhiteListedURI>
             <WhiteListedURI>
@@ -1099,8 +1105,142 @@
     <CertificateReLoaderConfiguration>
         <Period>{{apim.certificate_reloader.period}}</Period>
     </CertificateReLoaderConfiguration>
-        <MutualSSL>
-            <ClientCertificateHeader>{{apimgt.mutual_ssl.certificate_header}}</ClientCertificateHeader>
-            <EnableClientCertificateValidation>{{apimgt.mutual_ssl.enable_client_validation}}</EnableClientCertificateValidation>
-        </MutualSSL>
+
+     <MutualSSL>
+        <ClientCertificateHeader>{{apimgt.mutual_ssl.certificate_header}}</ClientCertificateHeader>
+        <EnableClientCertificateValidation>{{apimgt.mutual_ssl.enable_client_validation}}</EnableClientCertificateValidation>
+     </MutualSSL>
+
+     <EventHubConfigurations>
+        <Enable>{{apim.event_hub.enable}}</Enable>
+        {% if apim.event_hub.username is defined %}
+         <Username>{{apim.event_hub.username}}</Username>
+        {% else %}
+         <Username>{{apim.throttling.username}}</Username>
+        {% endif %}
+        {% if apim.event_hub.password is defined %}
+         <Password>{{apim.event_hub.password}}</Password>
+        {% else %}
+         <Password>{{apim.throttling.password}}</Password>
+        {% endif %}
+        {% if apim.event_hub.service_url is defined %}
+        <ServiceURL>{{apim.event_hub.service_url}}</ServiceURL>
+        {% endif %}
+         {% if apim.event_hub.init_delay is defined %}
+        <InitDelay>{{apim.event_hub.init_delay}}</InitDelay>
+          {% endif %}
+        <EventPublisherConfiguration>
+            <Type>{{apim.event_hub.event_type}}</Type>
+            {% if apim.event_hub.publish.url_group is defined %}
+                <ReceiverUrlGroup>
+                {%- for group in apim.event_hub.publish.url_group -%}
+                    {%- if group.type == "loadbalance" -%}
+                { {{- group.urls.toList()|join(',') -}} }
+                    {%- else -%}{ {{- group.urls.toList()|join('|') -}} }
+                    {%- endif -%}
+                    {{- "," if not loop.last -}}
+                {%- endfor -%}
+                </ReceiverUrlGroup>
+                <AuthUrlGroup>
+                    {%- for group in apim.event_hub.publish.url_group -%}
+                    {%- if group.type == "loadbalance" -%}
+                    { {{- group.auth_urls.toList()|join(',') -}} }
+                    {%- else -%}{ {{- group.auth_urls.toList()|join('|') -}} }
+                    {%- endif -%}
+                    {{- "," if not loop.last -}}
+                    {%- endfor -%}
+                </AuthUrlGroup>
+            {%else%}
+                {% if apim.throttling.url_group is defined %}
+                    <ReceiverUrlGroup>
+                    {%- for group in apim.throttling.url_group -%}
+                        {%- if group.type == "loadbalance" -%}
+                    { {{- group.traffic_manager_urls.toList()|join(',') -}} }
+                        {%- else -%}{ {{- group.traffic_manager_urls.toList()|join('|') -}} }
+                        {%- endif -%}
+                        {{- "," if not loop.last -}}
+                    {%- endfor -%}
+                    </ReceiverUrlGroup>
+                    <AuthUrlGroup>
+                        {%- for group in apim.throttling.url_group -%}
+                        {%- if group.type == "loadbalance" -%}
+                        { {{- group.traffic_manager_auth_urls.toList()|join(',') -}} }
+                        {%- else -%}{ {{- group.traffic_manager_auth_urls.toList()|join('|') -}} }
+                        {%- endif -%}
+                        {{- "," if not loop.last -}}
+                        {%- endfor -%}
+                    </AuthUrlGroup>
+                {%- else -%}
+                    <ReceiverUrlGroup>tcp://${carbon.local.ip}:${receiver.url.port}</ReceiverUrlGroup>
+                    <AuthUrlGroup>ssl://${carbon.local.ip}:${auth.url.port}</AuthUrlGroup>
+                {% endif %}
+            {% endif %}}
+        </EventPublisherConfiguration>
+         <EventReceiverConfiguration>
+             <transport.jms.ConnectionFactoryJNDIName>TopicConnectionFactory</transport.jms.ConnectionFactoryJNDIName>
+             <transport.jms.DestinationType>topic</transport.jms.DestinationType>
+             <java.naming.factory.initial>{{apim.event_hub.java_naming_factory_initial}}</java.naming.factory.initial>
+             {% if apim.event_hub.event_listening_endpoints is defined %}
+             <connectionfactory.TopicConnectionFactory>amqp://{{apim.event_hub.username}}:{{apim.event_hub.password}}@clientid/carbon?brokerlist='{% for url in apim.event_hub.event_listening_endpoints %}{{url}}?retries='5'%26connectdelay='50';{% endfor %}'</connectionfactory.TopicConnectionFactory>
+             {% elif apim.throttling.throttle_decision_endpoints is defined %}
+             <connectionfactory.TopicConnectionFactory>amqp://{{apim.throttling.jms.username}}:{{apim.throttling.jms.password}}@clientid/carbon?brokerlist='{% for url in apim.throttling.throttle_decision_endpoints %}{{url}}?retries='5'%26connectdelay='50';{% endfor %}'</connectionfactory.TopicConnectionFactory>
+             {% else %}
+             <connectionfactory.TopicConnectionFactory>amqp://${admin.username}:${admin.password}@clientid/carbon?brokerlist='tcp://${carbon.local.ip}:${jms.port}'</connectionfactory.TopicConnectionFactory>
+             {% endif %}
+         </EventReceiverConfiguration>
+     </EventHubConfigurations>
+
+    {% if apim.sync_runtime_artifacts.publisher is defined %}
+    <SyncRuntimeArtifactsPublisher>
+        <Enable>true</Enable>
+        {% if apim.sync_runtime_artifacts.publisher.artifact_saver is defined %}
+        <ArtifactSaver>{{apim.sync_runtime_artifacts.publisher.artifact_saver}}</ArtifactSaver>
+        {% endif %}
+        {% if apim.sync_runtime_artifacts.publisher.publish_directly_to_gateway is defined %}
+        <PublishDirectlyToGW>{{apim.sync_runtime_artifacts.publisher.publish_directly_to_gateway}}</PublishDirectlyToGW>
+        {% endif %}
+    </SyncRuntimeArtifactsPublisher>
+    {% endif %}
+
+    {% if apim.sync_runtime_artifacts.gateway is defined %}
+    <SyncRuntimeArtifactsGateway>
+        <Enable>true</Enable>
+        {% if apim.sync_runtime_artifacts.gateway.gateway_labels is defined %}
+        <GatewayLabels>
+            {% for attribute in apim.sync_runtime_artifacts.gateway.gateway_labels %}
+            <Label>{{attribute}}</Label>
+            {% endfor %}
+        </GatewayLabels>
+        {% endif %}
+        {% if apim.sync_runtime_artifacts.gateway.artifact_retriever is defined %}
+        <ArtifactRetriever>{{apim.sync_runtime_artifacts.gateway.artifact_retriever}}</ArtifactRetriever>
+        {% endif %}
+    </SyncRuntimeArtifactsGateway>
+    {% endif %}
+
+     <ContainerMgt>
+         <DeploymentEnvironments>
+             {% for key,value in ContainerMgtConfig.items() %}
+                 <Property name="{{key}}">{{value}}</Property>
+             {% endfor %}
+         </DeploymentEnvironments>
+
+         {% for cluster in ContainerMgtClusterConfig%}
+         <ContainerMgtInfo>
+             <Type>{{cluster.type}}</Type>
+             <ClassName>{{cluster.class}}</ClassName>
+             <ClusterName>{{cluster.clusterName}}</ClusterName>
+             <DisplayName>{{cluster.displayName}}</DisplayName>
+             <Properties>
+                 {% for key,value in cluster.properties.items() %}
+                     <Property name="{{key}}">{{value}}</Property>
+                 {% endfor %}
+             </Properties>
+         </ContainerMgtInfo>
+         {% endfor %}
+     </ContainerMgt>
+
+     <!--This parameter is used to Enable the password changing feature in devportal. When this is enabled, a user can
+      change his/her password via devportal. By default this feature is enabled.-->
+     <EnableChangePassword>{{apim.enable_change_password}}</EnableChangePassword>
 </APIManager>

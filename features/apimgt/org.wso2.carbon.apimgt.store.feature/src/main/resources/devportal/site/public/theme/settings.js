@@ -9,6 +9,11 @@ const Settings = {
             host: 'localhost',
         },
         subscriptionLimit: 1000,
+        isPassive: true,
+        singleLogout: {
+            enabled: true, // If enabled, user will be logged out from the App when logged out from the IDP (eg: SSO logout from a different App).
+            timeout: 4000 // Defines the timeout for the above periodical session status check
+        }
     },
     grantTypes: {
         authorization_code: 'Code',
@@ -21,5 +26,13 @@ const Settings = {
         'urn:ietf:params:oauth:grant-type:jwt-bearer': 'JWT',
         kerberos: 'Kerberos',
         'urn:ietf:params:oauth:grant-type:device_code': 'Device Code',
+    },
+    passwordChange: {
+        guidelinesEnabled: false,
+        policyList: [
+            'Policy 1',
+            'Policy 2',
+            'Policy 3',
+        ],
     },
 };

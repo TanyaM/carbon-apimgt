@@ -55,7 +55,6 @@ public class RecommenderDetailsExtractor implements RecommenderEventPublisher {
     private static final Logger log = LoggerFactory.getLogger(RecommenderDetailsExtractor.class);
     private static String streamID = "org.wso2.apimgt.recommendation.event.stream:1.0.0";
     private boolean tenantFlowStarted = false;
-    private boolean superAdminTenantFlowStarted = false;
     protected ApiMgtDAO apiMgtDAO = ApiMgtDAO.getInstance();
 
     private int applicationId;
@@ -400,7 +399,7 @@ public class RecommenderDetailsExtractor implements RecommenderEventPublisher {
             } else if (httpResponse.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED &&
                     accessTokenGenerator != null){
                 log.warn("Error getting recommendations from server. Invalid credentials used");
-                accessTokenGenerator.setValidToken(false);
+                accessTokenGenerator.removeInvalidToken(new String[]{APIConstants.OAUTH2_DEFAULT_SCOPE});
             } else {
                 log.warn("Error getting recommendations from server. Server responded with "
                         + httpResponse.getStatusLine().getStatusCode());

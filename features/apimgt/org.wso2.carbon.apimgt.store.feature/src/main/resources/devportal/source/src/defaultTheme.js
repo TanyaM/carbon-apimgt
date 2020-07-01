@@ -32,7 +32,8 @@ const DefaultConfigurations = {
     custom: {
         contentAreaWidth: 1240,
         backgroundImage: '', // Add a watermark background to the content area of the page. Example ( '/devportal/site/public/images/back-light.png')
-        defaultApiView: 'grid', // Sets the default view for the api listing page ( Other values available = 'list' )
+        defaultApiView: 'grid',   // Sets the default view for the api listing page ( Other values available = 'list' ). 
+                                    // To disable one option for an example if you want to disable grid completely and get rid of the toggle buttons use ['list'].
         page: {
             style: 'fluid', // Set the page style ( Other values available 'fixed', 'fluid')
             width: 1240, // This value is effected only when the page.style = 'fixed'
@@ -86,6 +87,7 @@ const DefaultConfigurations = {
         overview: {
             titleIconColor: '#89b4ff',
             titleIconSize: 16,
+            noContentBackground: 'rgba(255, 255, 255, 0.2)',
         },
         adminRole: 'admin',
         commentsLimit: 5,
@@ -138,6 +140,7 @@ const DefaultConfigurations = {
         noApiImage: '/site/public/images/nodata.svg',
         landingPage: {
             active: false,
+            activeForAnonymous: true,
             carousel: {
                 active: true,
                 slides: [
@@ -199,6 +202,7 @@ const DefaultConfigurations = {
             },
             contact: {
                 active: true,
+                contactHTML: '<div><strong>Mailing Address</strong><p><div>787 Castro Street</div><div>Mountain View,</div><div>CA 94041</div></p><div>Tel: +1 650 745 4499 </div><div>Fax: +1 650 584 3894</div></div>',
             },
         },
         tagWise: {
@@ -230,6 +234,14 @@ const DefaultConfigurations = {
         },
         social: {
             showRating: true,
+            showSharing: {
+                active: false,
+                showFacebook: true,
+                showReddit: true,
+                showTwitter: true,
+                showEmbad: true,
+                showEmail: true,
+            }
         },
         apiDetailPages: {
             showCredentials: true,
@@ -238,6 +250,10 @@ const DefaultConfigurations = {
             showDocuments: true,
             showSdks: true,
             onlyShowSdks: [], // You can put an array of strings to enable only a given set of sdks. Leave empty to show all. ex: ['java','javascript']
+            sdkBackground: '#ffffff',
+            swaggerUIBackground: '#efefef',
+            documentBackground: '#efefef',
+            tokenTextBoxBackground: '#efefef',
         },
         banner: {
             active: false, // make it true to display a banner image
@@ -253,9 +269,11 @@ const DefaultConfigurations = {
         },
         footer: {
             active: true,
+            footerHTML: '',
             text: '', // Leave empty to show the default WSO2 Text. Provide custom text to display your own thing.
             background: '#000',
             color: '#fff',
+            height: 50,
         },
         title: {
             prefix: '[Devportal]',
@@ -297,6 +315,19 @@ const DefaultConfigurations = {
             showText: true,
             minWidth: 60, // Width of the language switcher in pixles
         },
+        info: {
+            color: '#64b5f6',    
+        },
+        /* 
+            This is the config for the public teant store.
+            Set "active: false" to redirect the teant user to the url
+            given by redirectToIfInactive. It will also hide the link
+            GO TO PUBLIC DEV PORTAL link at the header.
+        */
+       publicTenantStore: {
+            active: true,
+            redirectToIfInactive: 'https://wso2.com/api-management/cloud/',
+        }
     },
 };
 

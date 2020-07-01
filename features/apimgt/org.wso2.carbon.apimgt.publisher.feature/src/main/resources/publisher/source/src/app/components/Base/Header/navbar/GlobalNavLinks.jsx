@@ -19,6 +19,7 @@ import React, { useState, useEffect } from 'react';
 import {
     ListItemIcon, List, withStyles, ListItem, ListItemText,
 } from '@material-ui/core';
+import ScopesIcon from '@material-ui/icons/ListAlt';
 import PropTypes from 'prop-types';
 import { Link, withRouter } from 'react-router-dom';
 import CustomIcon from 'AppComponents/Shared/CustomIcon';
@@ -53,6 +54,9 @@ const styles = (theme) => ({
     selectedText: {
         color: theme.palette.getContrastText(theme.palette.background.activeMenuItem),
     },
+    scopeIconColor: {
+        fill: theme.palette.getContrastText(theme.palette.background.leftMenu),
+    },
 });
 
 /**
@@ -74,6 +78,8 @@ function GlobalNavLinks(props) {
             setSelected('apis');
         } else if (/\/api-products$/g.test(pathname) || /\/api-products\//g.test(pathname)) {
             setSelected('api-products');
+        } else if (/\/scopes$/g.test(pathname) || /\/scopes\//g.test(pathname)) {
+            setSelected('scopes');
         }
     };
     useEffect(() => {
@@ -105,6 +111,28 @@ function GlobalNavLinks(props) {
                             }),
                         }}
                         primary={<FormattedMessage id='Base.Header.navbar.GlobalNavBar.apis' defaultMessage='APIs' />}
+                    />
+                </ListItem>
+            </Link>
+            <Link
+                to='/scopes'
+                className={classNames({ [classes.selected]: selected === 'scopes', [classes.links]: true })}
+            >
+                <ListItem button>
+                    <ListItemIcon classes={{ root: classNames({ [classes.smallIcon]: smallView }) }}>
+                        <ScopesIcon className={classes.scopeIconColor} />
+                    </ListItemIcon>
+                    <ListItemText
+                        classes={{
+                            primary: classNames({
+                                [classes.selectedText]: selected === 'scopes',
+                                [classes.listText]: selected !== 'scopes' && !smallView,
+                                [classes.listTextSmall]: selected !== 'scopes' && smallView,
+                            }),
+                        }}
+                        primary={
+                            <FormattedMessage id='Base.Header.navbar.GlobalNavBar.scopes' defaultMessage='Scopes' />
+                        }
                     />
                 </ListItem>
             </Link>

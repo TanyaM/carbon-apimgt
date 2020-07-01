@@ -31,8 +31,11 @@ import org.json.simple.JSONObject;
 import org.wso2.carbon.apimgt.api.APIManagementException;
 import org.wso2.carbon.apimgt.api.model.APIPublisher;
 import org.wso2.carbon.apimgt.api.model.APIStore;
+import org.wso2.carbon.apimgt.impl.containermgt.ContainerBasedConstants;
 import org.wso2.carbon.apimgt.impl.dto.ClaimMappingDto;
 import org.wso2.carbon.apimgt.impl.dto.Environment;
+import org.wso2.carbon.apimgt.impl.dto.EventHubConfigurationDto;
+import org.wso2.carbon.apimgt.impl.dto.GatewayArtifactSynchronizerProperties;
 import org.wso2.carbon.apimgt.impl.dto.JWKSConfigurationDTO;
 import org.wso2.carbon.apimgt.impl.dto.JWTConfigurationDto;
 import org.wso2.carbon.apimgt.impl.dto.ThrottleProperties;
@@ -81,14 +84,20 @@ public class APIManagerConfiguration {
     private static final String EMAIL_LOGIN = "EmailLogin";
     private static final String PRIMARY_LOGIN = "primary";
     private static final String CLAIM_URI = "ClaimUri";
-    public static final  String RECEIVER_URL_PORT = "receiver.url.port";
-    public static final String  AUTH_URL_PORT = "auth.url.port";
-    public static final String  JMS_PORT = "jms.port";
+    private static final String TOKEN_REVOCATION_NOTIFIERS = "TokenRevocationNotifiers";
+    private static final String REALTIME_NOTIFIER = "RealtimeNotifier";
+    private static final String PERSISTENT_NOTIFIER = "PersistentNotifier";
+    private static final String TOKEN_REVOCATION_NOTIFIERS_PASSWORD = "TokenRevocationNotifiers.Notifier.Password";
+    public static final String RECEIVER_URL_PORT = "receiver.url.port";
+    public static final String AUTH_URL_PORT = "auth.url.port";
+    public static final String JMS_PORT = "jms.port";
     public static final String CARBON_CONFIG_PORT_OFFSET_NODE = "Ports.Offset";
     public static final String WEBSOCKET_DEFAULT_GATEWAY_URL = "ws://localhost:9099";
     private Map<String, Map<String, String>> loginConfiguration = new ConcurrentHashMap<String, Map<String, String>>();
     private JSONArray applicationAttributes = new JSONArray();
     private JSONArray monetizationAttributes = new JSONArray();
+    private CacheInvalidationConfiguration cacheInvalidationConfiguration;
+    private JSONArray containerMgtAttributes = new JSONArray();
 
     private RecommendationEnvironment recommendationEnvironment;
 
@@ -104,26 +113,34 @@ public class APIManagerConfiguration {
     private static String tokenRevocationClassName;
 
     public static Properties getRealtimeTokenRevocationNotifierProperties() {
+
         return realtimeNotifierProperties;
     }
 
     public static Properties getPersistentTokenRevocationNotifiersProperties() {
+
         return persistentNotifierProperties;
     }
 
     public static String getTokenRevocationClassName() {
+
         return tokenRevocationClassName;
     }
 
     public static boolean isTokenRevocationEnabled() {
+
         return !tokenRevocationClassName.isEmpty();
     }
 
     private Set<APIStore> externalAPIStores = new HashSet<APIStore>();
+    private EventHubConfigurationDto eventHubConfigurationDto;
 
     public Map<String, Map<String, String>> getLoginConfiguration() {
+
         return loginConfiguration;
     }
+
+    private GatewayArtifactSynchronizerProperties gatewayArtifactSynchronizerProperties = new GatewayArtifactSynchronizerProperties();;
 
     /**
      * Returns the configuration of the Identity Provider.
@@ -131,6 +148,7 @@ public class APIManagerConfiguration {
      * @return configuration of the Identity Provider from the api-manager configuration
      */
     public IDPConfiguration getIdentityProviderConfig() {
+
         if (getFirstProperty(APIConstants.IDENTITY_PROVIDER_AUTHORIZE_ENDPOINT) != null) {
             return new IDPConfiguration.Builder()
                     .authorizeEndpoint(getFirstProperty(APIConstants.IDENTITY_PROVIDER_AUTHORIZE_ENDPOINT))
@@ -142,6 +160,24 @@ public class APIManagerConfiguration {
     }
 
     /**
+     * Returns Product REST APIs' cache configuration by reading from api-manager.xml
+     *
+     * @return Product REST APIs' cache configuration.
+     */
+    public RESTAPICacheConfiguration getRESTAPICacheConfig() {
+        boolean tokenCacheEnabled = Boolean.parseBoolean(getFirstProperty(APIConstants.REST_API_TOKEN_CACHE_ENABLED));
+        int tokenCacheExpiry = Integer.parseInt(getFirstProperty(APIConstants.REST_API_TOKEN_CACHE_EXPIRY));
+        boolean cacheControlHeadersEnabled = Boolean.parseBoolean(getFirstProperty(APIConstants.REST_API_CACHE_CONTROL_HEADERS_ENABLED));
+        int cacheControlHeadersMaxAge = Integer.parseInt(getFirstProperty(APIConstants.REST_API_CACHE_CONTROL_HEADERS_MAX_AGE));
+        return new RESTAPICacheConfiguration.Builder()
+                .tokenCacheEnabled(tokenCacheEnabled)
+                .tokenCacheExpiry(tokenCacheExpiry)
+                .cacheControlHeadersEnabled(cacheControlHeadersEnabled)
+                .cacheControlHeadersMaxAge(cacheControlHeadersMaxAge)
+                .build();
+    }
+
+    /**
      * Populate this configuration by reading an XML file at the given location. This method
      * can be executed only once on a given APIManagerConfiguration instance. Once invoked and
      * successfully populated, it will ignore all subsequent invocations.
@@ -150,6 +186,7 @@ public class APIManagerConfiguration {
      * @throws APIManagementException If an error occurs while reading the XML descriptor
      */
     public void load(String filePath) throws APIManagementException {
+
         if (initialized) {
             return;
         }
@@ -167,7 +204,6 @@ public class APIManagerConfiguration {
             secretResolver = SecretResolverFactory.create(builder.getDocumentElement(), true);
             readChildElements(builder.getDocumentElement(), new Stack<String>());
             initialized = true;
-            addKeyManagerConfigsAsSystemProperties();
             String url = getFirstProperty(APIConstants.API_KEY_VALIDATOR_URL);
             if (url == null) {
                 log.error("API_KEY_VALIDATOR_URL is null");
@@ -175,11 +211,11 @@ public class APIManagerConfiguration {
         } catch (IOException e) {
             log.error(e.getMessage());
             throw new APIManagementException("I/O error while reading the API manager " +
-                                             "configuration: " + filePath, e);
+                    "configuration: " + filePath, e);
         } catch (XMLStreamException e) {
             log.error(e.getMessage());
             throw new APIManagementException("Error while parsing the API manager " +
-                                             "configuration: " + filePath, e);
+                    "configuration: " + filePath, e);
         } catch (OMException e) {
             log.error(e.getMessage());
             throw new APIManagementException("Error while parsing API Manager configuration: " + filePath, e);
@@ -192,6 +228,7 @@ public class APIManagerConfiguration {
     }
 
     public Set<String> getConfigKeySet() {
+
         if (configuration != null) {
             return configuration.keySet();
         }
@@ -199,6 +236,7 @@ public class APIManagerConfiguration {
     }
 
     public String getFirstProperty(String key) {
+
         List<String> value = configuration.get(key);
         if (value == null) {
             return null;
@@ -207,10 +245,12 @@ public class APIManagerConfiguration {
     }
 
     public List<String> getProperty(String key) {
+
         return configuration.get(key);
     }
 
     public void reloadSystemProperties() {
+
         for (Map.Entry<String, List<String>> entry : configuration.entrySet()) {
             List<String> list = entry.getValue();
             for (int i = 0; i < list.size(); i++) {
@@ -221,15 +261,22 @@ public class APIManagerConfiguration {
     }
 
     private void readChildElements(OMElement serverConfig,
-                                   Stack<String> nameStack) throws APIManagementException{
+                                   Stack<String> nameStack) throws APIManagementException {
+
         for (Iterator childElements = serverConfig.getChildElements(); childElements
                 .hasNext(); ) {
             OMElement element = (OMElement) childElements.next();
             String localName = element.getLocalName();
             nameStack.push(localName);
-            if ("TokenRevocationNotifiers".equals(localName)) {
+            if ("APIKeyValidator".equals(localName)) {
+                OMElement keyManagerServiceUrl = element.getFirstChildWithName(new QName(APIConstants.AUTHSERVER_URL));
+                if (keyManagerServiceUrl != null) {
+                    String serviceUrl = keyManagerServiceUrl.getText();
+                    addKeyManagerConfigsAsSystemProperties(APIUtil.replaceSystemProperty(serviceUrl));
+                }
+            } else if (TOKEN_REVOCATION_NOTIFIERS.equals(localName)) {
                 tokenRevocationClassName = element.getAttributeValue(new QName("class"));
-            } else if ("RealtimeNotifier".equals(localName)) {
+            } else if (REALTIME_NOTIFIER.equals(localName)) {
                 Iterator revocationPropertiesIterator = element.getChildrenWithLocalName("Property");
                 Properties properties = new Properties();
                 while (revocationPropertiesIterator.hasNext()) {
@@ -238,7 +285,7 @@ public class APIManagerConfiguration {
                             propertyElem.getText());
                 }
                 realtimeNotifierProperties = properties;
-            } else if ("PersistentNotifier".equals(localName)) {
+            } else if (PERSISTENT_NOTIFIER.equals(localName)) {
                 Iterator revocationPropertiesIterator = element.getChildrenWithLocalName("Property");
                 Properties properties = new Properties();
                 while (revocationPropertiesIterator.hasNext()) {
@@ -246,10 +293,10 @@ public class APIManagerConfiguration {
                     if (propertyElem.getAttributeValue(new QName("name")).
                             equalsIgnoreCase("password")) {
                         if (secretResolver.isInitialized() && secretResolver
-                                .isTokenProtected("TokenRevocationNotifiers.Notifier.Password")) {
+                                .isTokenProtected(TOKEN_REVOCATION_NOTIFIERS_PASSWORD)) {
                             properties.setProperty(propertyElem.getAttributeValue(new QName("name")),
                                     secretResolver.
-                                            resolve("TokenRevocationNotifiers.Notifier.Password"));
+                                            resolve(TOKEN_REVOCATION_NOTIFIERS_PASSWORD));
                         } else {
                             properties.setProperty(propertyElem.getAttributeValue(new QName("name")),
                                     propertyElem.getText());
@@ -323,10 +370,11 @@ public class APIManagerConfiguration {
                           This will be happen only on server startup therefore we log and continue the startup
                          */
                         log.error("Duplicate environment name found in api-manager.xml " +
-                                  environment.getName());
+                                environment.getName());
                     }
                 }
-            } else if (APIConstants.EXTERNAL_API_STORES.equals(localName)) {  //Initialize 'externalAPIStores' config elements
+            } else if (APIConstants.EXTERNAL_API_STORES
+                    .equals(localName)) {  //Initialize 'externalAPIStores' config elements
                 Iterator apistoreIterator = element.getChildrenWithLocalName("ExternalAPIStore");
                 externalAPIStores = new HashSet<APIStore>();
                 while (apistoreIterator.hasNext()) {
@@ -359,13 +407,15 @@ public class APIManagerConfiguration {
                         log.error("The ExternalAPIStore name attribute is not defined in api-manager.xml.");
                     }
                     store.setName(name); //Set store name
-                    OMElement configDisplayName = storeElem.getFirstChildWithName(new QName(APIConstants.EXTERNAL_API_STORE_DISPLAY_NAME));
+                    OMElement configDisplayName =
+                            storeElem.getFirstChildWithName(new QName(APIConstants.EXTERNAL_API_STORE_DISPLAY_NAME));
                     String displayName = (configDisplayName != null) ? APIUtil.replaceSystemProperty(
                             configDisplayName.getText()) : name;
                     store.setDisplayName(displayName);//Set store display name
                     store.setEndpoint(APIUtil.replaceSystemProperty(
                             storeElem.getFirstChildWithName(new QName(
-                                    APIConstants.EXTERNAL_API_STORE_ENDPOINT)).getText())); //Set store endpoint,which is used to publish APIs
+                                    APIConstants.EXTERNAL_API_STORE_ENDPOINT))
+                                    .getText())); //Set store endpoint,which is used to publish APIs
                     store.setPublished(false);
                     if (APIConstants.WSO2_API_STORE_TYPE.equals(type)) {
                         OMElement password = storeElem.getFirstChildWithName(new QName(
@@ -375,9 +425,12 @@ public class APIManagerConfiguration {
                             store.setPassword(APIUtil.replaceSystemProperty(value));
                             store.setUsername(APIUtil.replaceSystemProperty(
                                     storeElem.getFirstChildWithName(new QName(
-                                            APIConstants.EXTERNAL_API_STORE_USERNAME)).getText())); //Set store login username [optional]
+                                            APIConstants.EXTERNAL_API_STORE_USERNAME))
+                                            .getText())); //Set store login username [optional]
                         } else {
-                            log.error("The user-credentials of API Publisher is not defined in the <ExternalAPIStore> config of api-manager.xml.");
+                            log.error(
+                                    "The user-credentials of API Publisher is not defined in the <ExternalAPIStore> " +
+                                            "config of api-manager.xml.");
                         }
                     }
                     externalAPIStores.add(store);
@@ -399,9 +452,11 @@ public class APIManagerConfiguration {
                     OMElement omElement = (OMElement) iterator.next();
                     Iterator attributes = omElement.getChildElements();
                     JSONObject jsonObject = new JSONObject();
-                    boolean isHidden = Boolean.parseBoolean(omElement.getAttributeValue(new QName(APIConstants.ApplicationAttributes.HIDDEN)));
+                    boolean isHidden = Boolean.parseBoolean(
+                            omElement.getAttributeValue(new QName(APIConstants.ApplicationAttributes.HIDDEN)));
                     boolean isRequired =
-                            Boolean.parseBoolean(omElement.getAttributeValue(new QName(APIConstants.ApplicationAttributes.REQUIRED)));
+                            Boolean.parseBoolean(omElement
+                                    .getAttributeValue(new QName(APIConstants.ApplicationAttributes.REQUIRED)));
                     jsonObject.put(APIConstants.ApplicationAttributes.HIDDEN, isHidden);
                     while (attributes.hasNext()) {
                         OMElement attribute = (OMElement) attributes.next();
@@ -409,7 +464,8 @@ public class APIManagerConfiguration {
                             jsonObject.put(APIConstants.ApplicationAttributes.ATTRIBUTE, attribute.getText());
                         } else if (attribute.getLocalName().equals(APIConstants.ApplicationAttributes.DESCRIPTION)) {
                             jsonObject.put(APIConstants.ApplicationAttributes.DESCRIPTION, attribute.getText());
-                        } else if (attribute.getLocalName().equals(APIConstants.ApplicationAttributes.DEFAULT) && isRequired) {
+                        } else if (attribute.getLocalName().equals(APIConstants.ApplicationAttributes.DEFAULT) &&
+                                isRequired) {
                             jsonObject.put(APIConstants.ApplicationAttributes.DEFAULT, attribute.getText());
                         }
                     }
@@ -425,24 +481,115 @@ public class APIManagerConfiguration {
                 if (additionalAttributes != null) {
                     setMonetizationAdditionalAttributes(additionalAttributes);
                 }
-            }else if (APIConstants.JWT_CONFIGS.equals(localName)){
+            } else if (APIConstants.JWT_CONFIGS.equals(localName)) {
                 setJWTConfiguration(element);
             } else if (APIConstants.TOKEN_ISSUERS.equals(localName)) {
                 setJWTTokenIssuers(element);
-            } else if (APIConstants.API_RECOMMENDATION.equals(localName)){
+            } else if (APIConstants.API_RECOMMENDATION.equals(localName)) {
                 setRecommendationConfigurations(element);
+            } else if (APIConstants.GlobalCacheInvalidation.GLOBAL_CACHE_INVALIDATION.equals(localName)) {
+                setGlobalCacheInvalidationConfiguration(element);
+            } else if (APIConstants.KeyManager.EVENT_HUB_CONFIGURATIONS.equals(localName)) {
+                setEventHubConfiguration(element);
+            } else if (APIConstants.GatewayArtifactSynchronizer.SYNC_RUNTIME_ARTIFACTS_PUBLISHER_CONFIG.equals(localName)) {
+                setRuntimeArtifactsSyncPublisherConfig(element);
+            } else if (APIConstants.GatewayArtifactSynchronizer.SYNC_RUNTIME_ARTIFACTS_GATEWAY_CONFIG.equals(localName)) {
+                setRuntimeArtifactsSyncGatewayConfig(element);
+            } else if (APIConstants.ContainerMgtAttributes.CONTAINER_MANAGEMENT.equals(localName)) {
+                setContainerMgtConfigurations(element);
             }
             readChildElements(element, nameStack);
             nameStack.pop();
         }
     }
 
+    private void setGlobalCacheInvalidationConfiguration(OMElement element) {
+
+        CacheInvalidationConfiguration cacheInvalidationConfiguration = new CacheInvalidationConfiguration();
+        OMElement enabledElement =
+                element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.ENABLED));
+        if (enabledElement != null) {
+            cacheInvalidationConfiguration.setEnabled(Boolean.parseBoolean(enabledElement.getText()));
+        }
+        OMElement domainElement = element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.Domain));
+        if (domainElement != null) {
+            cacheInvalidationConfiguration.setDomain(domainElement.getText());
+        }
+        OMElement streamNameElement =
+                element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.Stream));
+        if (streamNameElement != null) {
+            cacheInvalidationConfiguration.setStream(streamNameElement.getText());
+        }
+        OMElement usernameElement = element.getFirstChildWithName
+                (new QName(APIConstants.GlobalCacheInvalidation.USERNAME));
+        if (usernameElement != null) {
+            cacheInvalidationConfiguration.setUsername(APIUtil.replaceSystemProperty(usernameElement.getText()));
+        }
+        String password;
+        OMElement passwordElement =
+                element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.PASSWORD));
+        if (passwordElement != null) {
+            password = MiscellaneousUtil.resolve(passwordElement, secretResolver);
+            cacheInvalidationConfiguration.setPassword(APIUtil.replaceSystemProperty(password));
+        }
+        OMElement receiverUrlGroupElement =
+                element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.REVEIVER_URL_GROUP));
+        if (receiverUrlGroupElement != null) {
+            cacheInvalidationConfiguration
+                    .setReceiverUrlGroup(APIUtil.replaceSystemProperty(receiverUrlGroupElement.getText()));
+        }
+        OMElement authUrlGroupElement =
+                element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.AUTH_URL_GROUP));
+        if (authUrlGroupElement != null) {
+            cacheInvalidationConfiguration
+                    .setAuthUrlGroup(APIUtil.replaceSystemProperty(authUrlGroupElement.getText()));
+        }
+        OMElement receiverConnectionDetailsElement =
+                element.getFirstChildWithName(
+                        new QName(APIConstants.GlobalCacheInvalidation.ReceiverConnectionDetails));
+        if (receiverConnectionDetailsElement != null) {
+            Iterator receiverConnectionDetailsElements = receiverConnectionDetailsElement.getChildElements();
+            Properties properties = new Properties();
+            while (receiverConnectionDetailsElements.hasNext()) {
+                OMElement omElement = (OMElement) receiverConnectionDetailsElements.next();
+                String value = MiscellaneousUtil.resolve(omElement, secretResolver);
+                properties.put(omElement.getLocalName(), APIUtil.replaceSystemProperty(value));
+            }
+            cacheInvalidationConfiguration.setJmsConnectionParameters(properties);
+        }
+        OMElement topicNameElement =
+                element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.TOPIC_NAME));
+        if (topicNameElement != null) {
+            cacheInvalidationConfiguration.setCacheInValidationTopic(topicNameElement.getText());
+        }
+        OMElement excludedCachesElement =
+                element.getFirstChildWithName(new QName(APIConstants.GlobalCacheInvalidation.EXCLUDED_CACHES));
+        if (excludedCachesElement != null) {
+            Iterator excludedCaches = excludedCachesElement.getChildElements();
+            while (excludedCaches.hasNext()) {
+                cacheInvalidationConfiguration.addExcludedCaches(((OMElement) excludedCaches.next()).getText());
+            }
+        }
+        this.cacheInvalidationConfiguration = cacheInvalidationConfiguration;
+    }
+
+    public CacheInvalidationConfiguration getCacheInvalidationConfiguration() {
+
+        return cacheInvalidationConfiguration;
+    }
+
     public JSONArray getApplicationAttributes() {
+
         return applicationAttributes;
     }
 
     public JSONArray getMonetizationAttributes() {
+
         return monetizationAttributes;
+    }
+
+    public JSONArray getContainerMgtAttributes() {
+        return containerMgtAttributes;
     }
 
     /**
@@ -459,6 +606,7 @@ public class APIManagerConfiguration {
      * @param loginConfigElem
      */
     private void parseLoginConfig(OMElement loginConfigElem) {
+
         if (loginConfigElem != null) {
             if (log.isDebugEnabled()) {
                 log.debug("Login configuration is set ");
@@ -482,6 +630,7 @@ public class APIManagerConfiguration {
     }
 
     private String getKey(Stack<String> nameStack) {
+
         StringBuilder key = new StringBuilder();
         for (int i = 0; i < nameStack.size(); i++) {
             String name = nameStack.elementAt(i);
@@ -491,12 +640,15 @@ public class APIManagerConfiguration {
 
         return key.toString();
     }
+
     private boolean elementHasText(OMElement element) {
+
         String text = element.getText();
         return text != null && text.trim().length() != 0;
     }
 
     private void addToConfiguration(String key, String value) {
+
         List<String> list = configuration.get(key);
         if (list == null) {
             list = new ArrayList<String>();
@@ -506,12 +658,14 @@ public class APIManagerConfiguration {
             list.add(value);
         }
     }
-    
+
     public Map<String, Environment> getApiGatewayEnvironments() {
+
         return apiGatewayEnvironments;
     }
 
     public RecommendationEnvironment getApiRecommendationEnvironment() {
+
         return recommendationEnvironment;
     }
 
@@ -533,12 +687,13 @@ public class APIManagerConfiguration {
      * set the hostname and the port as System properties.
      * return void
      */
-    private void addKeyManagerConfigsAsSystemProperties() {
+    private void addKeyManagerConfigsAsSystemProperties(String serviceUrl) {
+
         URL keyManagerURL;
         try {
-            keyManagerURL = new URL(configuration.get(APIConstants.KEYMANAGER_SERVERURL).get(0));
+            keyManagerURL = new URL(serviceUrl);
             String hostname = keyManagerURL.getHost();
-            
+
             int port = keyManagerURL.getPort();
             if (port == -1) {
                 if (APIConstants.HTTPS_PROTOCOL.equals(keyManagerURL.getProtocol())) {
@@ -546,9 +701,9 @@ public class APIManagerConfiguration {
                 } else {
                     port = APIConstants.HTTP_PROTOCOL_PORT;
                 }
-            }           
+            }
             System.setProperty(APIConstants.KEYMANAGER_PORT, String.valueOf(port));
-            
+
             if (hostname.equals(System.getProperty(APIConstants.CARBON_LOCALIP))) {
                 System.setProperty(APIConstants.KEYMANAGER_HOSTNAME, "localhost");
             } else {
@@ -562,9 +717,11 @@ public class APIManagerConfiguration {
 
     /**
      * set workflow related configurations
+     *
      * @param element
      */
     private void setWorkflowProperties(OMElement element) {
+
         OMElement workflowConfigurationElement = element
                 .getFirstChildWithName(new QName(APIConstants.WorkflowConfigConstants.WORKFLOW));
         if (workflowConfigurationElement != null) {
@@ -620,12 +777,14 @@ public class APIManagerConfiguration {
 
         }
     }
+
     /**
      * set the Advance Throttle Properties into Configuration
      *
      * @param element
      */
     private void setThrottleProperties(OMElement element) {
+
         OMElement throttleConfigurationElement = element.getFirstChildWithName(new QName(APIConstants
                 .AdvancedThrottleConstants.THROTTLING_CONFIGURATIONS));
         if (throttleConfigurationElement != null) {
@@ -1047,7 +1206,7 @@ public class APIManagerConfiguration {
                                         .getText()));
                     } else {
                         String serviceUrl = "https://" + System.getProperty(APIConstants.KEYMANAGER_HOSTNAME) + ":" +
-                                System.getProperty(APIConstants.KEYMANAGER_PORT) + "/throttle/data/v1";
+                                System.getProperty(APIConstants.KEYMANAGER_PORT) + APIConstants.INTERNAL_WEB_APP_EP;
                         blockConditionRetrieverConfiguration.setServiceUrl(serviceUrl);
                     }
 
@@ -1148,18 +1307,22 @@ public class APIManagerConfiguration {
     }
 
     public ThrottleProperties getThrottleProperties() {
+
         return throttleProperties;
     }
 
     public WorkflowProperties getWorkflowProperties() {
+
         return workflowProperties;
     }
 
     /**
      * To populate Monetization Additional Attributes
+     *
      * @param element
      */
     private void setMonetizationAdditionalAttributes(OMElement element) {
+
         Iterator iterator = element.getChildrenWithLocalName(APIConstants.Monetization.ATTRIBUTE);
         while (iterator.hasNext()) {
             OMElement omElement = (OMElement) iterator.next();
@@ -1174,7 +1337,7 @@ public class APIManagerConfiguration {
                 OMElement attribute = (OMElement) attributes.next();
                 if (attribute.getLocalName().equals(APIConstants.Monetization.ATTRIBUTE_NAME)) {
                     monetizationAttribute.put(APIConstants.Monetization.ATTRIBUTE, attribute.getText());
-                } else if(attribute.getLocalName().equals(APIConstants.Monetization.ATTRIBUTE_DISPLAY_NAME)){
+                } else if (attribute.getLocalName().equals(APIConstants.Monetization.ATTRIBUTE_DISPLAY_NAME)) {
                     monetizationAttribute.put(APIConstants.Monetization.ATTRIBUTE_DISPLAY_NAME, attribute.getText());
                 } else if (attribute.getLocalName().equals(APIConstants.Monetization.ATTRIBUTE_DESCRIPTION)) {
                     monetizationAttribute.put(APIConstants.Monetization.ATTRIBUTE_DESCRIPTION, attribute.getText());
@@ -1193,9 +1356,11 @@ public class APIManagerConfiguration {
 
     /**
      * To populate recommendation related configurations
+     *
      * @param element
      */
     private void setRecommendationConfigurations(OMElement element) {
+
         OMElement recommendationSeverEndpointElement = element.getFirstChildWithName(
                 new QName(APIConstants.RECOMMENDATION_ENDPOINT));
         if (recommendationSeverEndpointElement != null) {
@@ -1334,8 +1499,215 @@ public class APIManagerConfiguration {
         }
     }
 
+    private void setEventHubConfiguration(OMElement omElement) {
+
+        EventHubConfigurationDto eventHubConfigurationDto = new EventHubConfigurationDto();
+        OMElement enableElement = omElement.getFirstChildWithName(new QName(APIConstants.KeyManager.ENABLE));
+        if (enableElement != null && Boolean.parseBoolean(enableElement.getText())) {
+            eventHubConfigurationDto.setEnabled(true);
+            OMElement serviceUrl = omElement.getFirstChildWithName(new QName(APIConstants.KeyManager.SERVICE_URL));
+            if (serviceUrl != null) {
+                eventHubConfigurationDto.setServiceUrl(
+                        APIUtil.replaceSystemProperty(serviceUrl.getText()).concat(APIConstants.INTERNAL_WEB_APP_EP));
+            }
+            OMElement initDelay = omElement.getFirstChildWithName(new QName(APIConstants.KeyManager.INIT_DELAY));
+            if (initDelay != null) {
+                eventHubConfigurationDto.setInitDelay(Integer.parseInt(initDelay.getText()));
+            }
+            OMElement usernameElement = omElement.getFirstChildWithName(new QName(APIConstants.KeyManager.USERNAME));
+            if (usernameElement != null) {
+                eventHubConfigurationDto.setUsername(usernameElement.getText());
+            }
+            OMElement passwordElement = omElement.getFirstChildWithName(new QName(APIConstants.KeyManager.PASSWORD));
+            if (passwordElement != null) {
+                String password = MiscellaneousUtil.resolve(passwordElement, secretResolver);
+                eventHubConfigurationDto.setPassword(APIUtil.replaceSystemProperty(password).toCharArray());
+            }
+
+            OMElement configurationRetrieverElement =
+                    omElement.getFirstChildWithName(new QName(APIConstants.KeyManager.EVENT_RECEIVER_CONFIGURATION));
+            if (configurationRetrieverElement != null) {
+                EventHubConfigurationDto.EventHubReceiverConfiguration eventHubReceiverConfiguration =
+                        new EventHubConfigurationDto.EventHubReceiverConfiguration();
+                Iterator receiverConnectionDetailsElements = configurationRetrieverElement.getChildElements();
+                Properties properties = new Properties();
+                while (receiverConnectionDetailsElements.hasNext()) {
+                    OMElement element = (OMElement) receiverConnectionDetailsElements.next();
+                    String value = MiscellaneousUtil.resolve(element, secretResolver);
+                    properties.put(element.getLocalName(), APIUtil.replaceSystemProperty(value));
+                }
+                eventHubReceiverConfiguration.setJmsConnectionParameters(properties);
+                eventHubConfigurationDto.setEventHubReceiverConfiguration(eventHubReceiverConfiguration);
+            }
+            OMElement eventPublisherElement =
+                    omElement.getFirstChildWithName(new QName(APIConstants.KeyManager.EVENT_PUBLISHER_CONFIGURATIONS));
+            EventHubConfigurationDto.EventHubPublisherConfiguration eventHubPublisherConfiguration =
+                    new EventHubConfigurationDto.EventHubPublisherConfiguration();
+            if (eventPublisherElement != null) {
+                OMElement receiverUrlGroupElement = eventPublisherElement.getFirstChildWithName(new
+                        QName
+                        (APIConstants.AdvancedThrottleConstants.DATA_PUBLISHER_CONFIGURAION_REVEIVER_URL_GROUP));
+                if (receiverUrlGroupElement != null) {
+                    eventHubPublisherConfiguration
+                            .setReceiverUrlGroup(APIUtil.replaceSystemProperty(receiverUrlGroupElement
+                                    .getText()));
+                }
+                OMElement authUrlGroupElement = eventPublisherElement.getFirstChildWithName(new QName
+                        (APIConstants.AdvancedThrottleConstants.DATA_PUBLISHER_CONFIGURAION_AUTH_URL_GROUP));
+                if (authUrlGroupElement != null) {
+                    eventHubPublisherConfiguration
+                            .setAuthUrlGroup(APIUtil.replaceSystemProperty(authUrlGroupElement.getText()));
+                }
+                OMElement eventTypeElement = eventPublisherElement.getFirstChildWithName(
+                        new QName(APIConstants.AdvancedThrottleConstants.DATA_PUBLISHER_CONFIGURAION_TYPE));
+                if (eventTypeElement != null) {
+                    eventHubPublisherConfiguration.setType(eventTypeElement.getText().trim());
+                }
+                eventHubConfigurationDto.setEventHubPublisherConfiguration(eventHubPublisherConfiguration);
+            }
+        }
+        this.eventHubConfigurationDto = eventHubConfigurationDto;
+    }
+
     public JWTConfigurationDto getJwtConfigurationDto() {
 
         return jwtConfigurationDto;
+    }
+
+    public EventHubConfigurationDto getEventHubConfigurationDto() {
+
+        return eventHubConfigurationDto;
+    }
+
+    private void setRuntimeArtifactsSyncPublisherConfig (OMElement omElement){
+
+        OMElement enableElement = omElement
+                .getFirstChildWithName(new QName(APIConstants.GatewayArtifactSynchronizer.ENABLE_CONFIG));
+        if (enableElement != null) {
+            gatewayArtifactSynchronizerProperties.setSaveArtifactsEnabled(
+                    JavaUtils.isTrueExplicitly(enableElement.getText()));
+        } else {
+            log.debug("Save to storage is not set. Set to default false");
+        }
+
+        OMElement saverElement = omElement.getFirstChildWithName(
+                new QName(APIConstants.GatewayArtifactSynchronizer.SAVER_CONFIG));
+        if (saverElement != null) {
+            String artifactSaver = saverElement.getText();
+            gatewayArtifactSynchronizerProperties.setSaverName(artifactSaver);
+        } else {
+            log.debug("Artifact saver Element is not set. Set to default DB Saver");
+        }
+
+        OMElement publishDirectlyToGatewayElement = omElement
+                .getFirstChildWithName(new QName(APIConstants.GatewayArtifactSynchronizer.PUBLISH_DIRECTLY_TO_GW_CONFIG));
+        if (publishDirectlyToGatewayElement != null) {
+            gatewayArtifactSynchronizerProperties.setPublishDirectlyToGatewayEnabled(
+                    JavaUtils.isTrueExplicitly(publishDirectlyToGatewayElement.getText()));
+        } else {
+            log.debug("Publish directly to gateway is not set. Set to default true");
+        }
+
+    }
+
+    private void setRuntimeArtifactsSyncGatewayConfig (OMElement omElement){
+
+        OMElement enableElement = omElement
+                .getFirstChildWithName(new QName(APIConstants.GatewayArtifactSynchronizer.ENABLE_CONFIG));
+        if (enableElement != null) {
+            gatewayArtifactSynchronizerProperties.setRetrieveFromStorageEnabled(
+                    JavaUtils.isTrueExplicitly(enableElement.getText()));
+        } else {
+            log.debug("Retrieve from storage is not set. Set to default false");
+        }
+
+        OMElement retrieverElement = omElement.getFirstChildWithName(
+                new QName(APIConstants.GatewayArtifactSynchronizer.RETRIEVER_CONFIG));
+        if (retrieverElement != null) {
+            String artifactRetriever = retrieverElement.getText();
+            gatewayArtifactSynchronizerProperties.setRetrieverName(artifactRetriever);
+        } else {
+            log.debug("Artifact retriever Element is not set. Set to default DB Retriever");
+        }
+
+        OMElement gatewayLabelElement = omElement
+                .getFirstChildWithName(new QName(APIConstants.GatewayArtifactSynchronizer.GATEWAY_LABELS_CONFIG));
+        if (gatewayLabelElement != null) {
+            Iterator labelsIterator = gatewayLabelElement
+                    .getChildrenWithLocalName(APIConstants.GatewayArtifactSynchronizer.LABEL_CONFIG);
+            while (labelsIterator.hasNext()) {
+                OMElement labelElement = (OMElement) labelsIterator.next();
+                if (labelElement != null) {
+                    gatewayArtifactSynchronizerProperties.getGatewayLabels().add(labelElement.getText());
+                }
+            }
+        }
+    }
+
+    public GatewayArtifactSynchronizerProperties getGatewayArtifactSynchronizerProperties() {
+
+        return gatewayArtifactSynchronizerProperties; }
+
+    /**
+     * To populate deployment environments based configurations
+     *
+     * @param omElement
+     */
+    public void setContainerMgtConfigurations(OMElement omElement) {
+        JSONObject containerMgt = new JSONObject();
+        Iterator containerMgtElements = omElement.getChildElements();
+        JSONArray containerMgtInfo = new JSONArray();
+        Map<String, String> deploymentEnvs = new HashMap<>();
+        while (containerMgtElements.hasNext()) {
+            OMElement containerMgtElement = (OMElement) containerMgtElements.next();
+
+            //Get Deployment Environments
+            if (containerMgtElement.getLocalName().equals(ContainerBasedConstants.DEPLOYMENT_ENVIRONMENTS)) {
+                Iterator environmentsIterator = containerMgtElement.getChildElements();
+                while (environmentsIterator.hasNext()) {
+                    //read default values for class name and put into a map
+                    OMElement environmentElement = (OMElement) environmentsIterator.next();
+                    deploymentEnvs.put(environmentElement.getAttributeValue(new QName("name")).toLowerCase(),
+                            environmentElement.getText());
+                }
+            } else if (containerMgtElement.getLocalName().equals(ContainerBasedConstants.CONTAINER_MANAGEMENT_INFO)) {
+                //if configurations defined put them into JSON array
+                Iterator containerMgtInfoElements = containerMgtElement.getChildElements();
+                JSONObject containerMgtInfoObj = new JSONObject();
+                while (containerMgtInfoElements.hasNext()) {
+                    OMElement containerMgtInfoElement = (OMElement) containerMgtInfoElements.next();
+                    if (containerMgtInfoElement.getLocalName().equals(ContainerBasedConstants.TYPE)) {
+                        containerMgt.put(ContainerBasedConstants.TYPE, containerMgtInfoElement.getText().toLowerCase());
+                    } else if (containerMgtInfoElement.getLocalName().equals(ContainerBasedConstants.CLASS_NAME)) {
+                        if (containerMgtInfoElement.getText() != null && containerMgtInfoElement.getText() != "") {
+                            containerMgt.put(ContainerBasedConstants.CLASS_NAME, containerMgtInfoElement.getText().toLowerCase());
+                        } else {
+                            containerMgt.put(ContainerBasedConstants.CLASS_NAME,
+                                    deploymentEnvs.get(containerMgt.get(ContainerBasedConstants.TYPE)));
+                        }
+                    } else if (containerMgtInfoElement.getLocalName().equals(ContainerBasedConstants.CLUSTER_NAME)) {
+                        containerMgtInfoObj.put(ContainerBasedConstants.CLUSTER_NAME, containerMgtInfoElement.getText());
+                    } else if (containerMgtInfoElement.getLocalName().equals(ContainerBasedConstants.DISPLAY_NAME)) {
+                        containerMgtInfoObj.put(ContainerBasedConstants.DISPLAY_NAME, containerMgtInfoElement.getText());
+                    } else if (containerMgtInfoElement.getLocalName().equals(ContainerBasedConstants.PROPERTIES)) {
+                        Iterator clusterPropertiesIterator =
+                                containerMgtInfoElement.getChildElements();
+                        JSONObject propertyObj = new JSONObject();
+                        while (clusterPropertiesIterator.hasNext()) {
+                            OMElement propertyElement = (OMElement) clusterPropertiesIterator.next();
+                            propertyObj.put(propertyElement.getAttributeValue(new QName("name")), propertyElement.getText());
+                        }
+                        containerMgtInfoObj.put(ContainerBasedConstants.PROPERTIES, propertyObj);
+                    }
+                }
+                containerMgtInfo.add(containerMgtInfoObj);
+            }
+        }
+        if (!containerMgtInfo.isEmpty()) {
+            containerMgt.put(ContainerBasedConstants.CONTAINER_MANAGEMENT_INFO, containerMgtInfo);
+        }
+        if (!containerMgt.isEmpty()) {
+            containerMgtAttributes.add(containerMgt);
+        }
     }
 }

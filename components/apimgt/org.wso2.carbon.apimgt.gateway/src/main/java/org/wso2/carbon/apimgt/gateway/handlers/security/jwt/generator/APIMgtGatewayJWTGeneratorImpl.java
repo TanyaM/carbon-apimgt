@@ -52,6 +52,9 @@ public class APIMgtGatewayJWTGeneratorImpl extends AbstractAPIMgtGatewayJWTGener
         if (StringUtils.isNotEmpty(jwtInfoDto.getApplicationtier())) {
             claims.put(dialect + "/applicationtier", jwtInfoDto.getApplicationtier());
         }
+        if (StringUtils.isNotEmpty(jwtInfoDto.getApiName())) {
+            claims.put(dialect + "/apiname", jwtInfoDto.getApiName());
+        }
         if (StringUtils.isNotEmpty(jwtInfoDto.getApicontext())) {
             claims.put(dialect + "/apicontext", jwtInfoDto.getApicontext());
         }
@@ -82,9 +85,9 @@ public class APIMgtGatewayJWTGeneratorImpl extends AbstractAPIMgtGatewayJWTGener
         Map<String, Object> claims = new HashMap<>();
         Set<String> jwtExcludedClaims = jwtConfigurationDto.getJWTExcludedClaims();
         jwtExcludedClaims.addAll(Arrays.asList(restrictedClaims));
-        JWTClaimsSet jwtToken = jwtInfoDto.getJwtToken();
+        Map<String, Object> jwtToken = jwtInfoDto.getJwtValidationInfo().getClaims();
         if (jwtToken != null) {
-            for (Map.Entry<String, Object> jwtClaimEntry : jwtToken.getClaims().entrySet()) {
+            for (Map.Entry<String, Object> jwtClaimEntry : jwtToken.entrySet()) {
                 if (!jwtExcludedClaims.contains(jwtClaimEntry.getKey())) {
                     claims.put(jwtClaimEntry.getKey(), jwtClaimEntry.getValue());
                 }

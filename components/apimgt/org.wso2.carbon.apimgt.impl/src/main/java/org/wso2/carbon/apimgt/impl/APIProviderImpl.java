@@ -36,10 +36,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.wso2.carbon.CarbonConstants;
+import org.wso2.carbon.apimgt.api.APIDefinition;
+import org.wso2.carbon.apimgt.api.APIDefinitionValidationResponse;
 import org.wso2.carbon.apimgt.api.APIManagementException;
 import org.wso2.carbon.apimgt.api.APIMgtResourceNotFoundException;
 import org.wso2.carbon.apimgt.api.APIProvider;
@@ -50,9 +53,11 @@ import org.wso2.carbon.apimgt.api.MonetizationException;
 import org.wso2.carbon.apimgt.api.PolicyDeploymentFailureException;
 import org.wso2.carbon.apimgt.api.UnsupportedPolicyTypeException;
 import org.wso2.carbon.apimgt.api.WorkflowResponse;
+import org.wso2.carbon.apimgt.api.doc.model.APIResource;
 import org.wso2.carbon.apimgt.api.dto.CertificateInformationDTO;
 import org.wso2.carbon.apimgt.api.dto.CertificateMetadataDTO;
 import org.wso2.carbon.apimgt.api.dto.ClientCertificateDTO;
+import org.wso2.carbon.apimgt.api.dto.KeyManagerConfigurationDTO;
 import org.wso2.carbon.apimgt.api.dto.UserApplicationAPIUsage;
 import org.wso2.carbon.apimgt.api.model.API;
 import org.wso2.carbon.apimgt.api.model.APICategory;
@@ -66,6 +71,8 @@ import org.wso2.carbon.apimgt.api.model.APIStore;
 import org.wso2.carbon.apimgt.api.model.ApiTypeWrapper;
 import org.wso2.carbon.apimgt.api.model.BlockConditionsDTO;
 import org.wso2.carbon.apimgt.api.model.CORSConfiguration;
+import org.wso2.carbon.apimgt.api.model.DeploymentEnvironments;
+import org.wso2.carbon.apimgt.api.model.DeploymentStatus;
 import org.wso2.carbon.apimgt.api.model.Documentation;
 import org.wso2.carbon.apimgt.api.model.DuplicateAPIException;
 import org.wso2.carbon.apimgt.api.model.EndpointSecurity;
@@ -77,11 +84,17 @@ import org.wso2.carbon.apimgt.api.model.Monetization;
 import org.wso2.carbon.apimgt.api.model.Provider;
 import org.wso2.carbon.apimgt.api.model.ResourceFile;
 import org.wso2.carbon.apimgt.api.model.ResourcePath;
+import org.wso2.carbon.apimgt.api.model.Scope;
+import org.wso2.carbon.apimgt.api.model.SharedScopeUsage;
 import org.wso2.carbon.apimgt.api.model.SubscribedAPI;
 import org.wso2.carbon.apimgt.api.model.Subscriber;
+import org.wso2.carbon.apimgt.api.model.SwaggerData;
 import org.wso2.carbon.apimgt.api.model.Tier;
 import org.wso2.carbon.apimgt.api.model.URITemplate;
 import org.wso2.carbon.apimgt.api.model.Usage;
+import org.wso2.carbon.apimgt.api.model.DeploymentEnvironments;
+import org.wso2.carbon.apimgt.api.model.DeploymentStatus;
+import org.wso2.carbon.apimgt.api.model.graphql.queryanalysis.GraphqlComplexityInfo;
 import org.wso2.carbon.apimgt.api.model.policy.APIPolicy;
 import org.wso2.carbon.apimgt.api.model.policy.ApplicationPolicy;
 import org.wso2.carbon.apimgt.api.model.policy.Condition;
@@ -96,9 +109,12 @@ import org.wso2.carbon.apimgt.impl.certificatemgt.GatewayCertificateManager;
 import org.wso2.carbon.apimgt.impl.certificatemgt.ResponseCode;
 import org.wso2.carbon.apimgt.impl.clients.RegistryCacheInvalidationClient;
 import org.wso2.carbon.apimgt.impl.clients.TierCacheInvalidationClient;
+import org.wso2.carbon.apimgt.impl.containermgt.ContainerBasedConstants;
+import org.wso2.carbon.apimgt.impl.containermgt.ContainerManager;
 import org.wso2.carbon.apimgt.impl.dao.ApiMgtDAO;
-import org.wso2.carbon.apimgt.impl.definitions.OASParserUtil;
 import org.wso2.carbon.apimgt.impl.definitions.GraphQLSchemaDefinition;
+import org.wso2.carbon.apimgt.impl.definitions.OAS3Parser;
+import org.wso2.carbon.apimgt.impl.definitions.OASParserUtil;
 import org.wso2.carbon.apimgt.impl.dto.Environment;
 import org.wso2.carbon.apimgt.impl.dto.ThrottleProperties;
 import org.wso2.carbon.apimgt.impl.dto.TierPermissionDTO;
@@ -111,11 +127,17 @@ import org.wso2.carbon.apimgt.impl.notification.NotificationDTO;
 import org.wso2.carbon.apimgt.impl.notification.NotificationExecutor;
 import org.wso2.carbon.apimgt.impl.notification.NotifierConstants;
 import org.wso2.carbon.apimgt.impl.notification.exception.NotificationException;
+import org.wso2.carbon.apimgt.impl.notifier.events.APIEvent;
+import org.wso2.carbon.apimgt.impl.notifier.events.APIPolicyEvent;
+import org.wso2.carbon.apimgt.impl.notifier.events.ApplicationPolicyEvent;
+import org.wso2.carbon.apimgt.impl.notifier.events.SubscriptionEvent;
+import org.wso2.carbon.apimgt.impl.notifier.events.SubscriptionPolicyEvent;
 import org.wso2.carbon.apimgt.impl.publishers.WSO2APIPublisher;
 import org.wso2.carbon.apimgt.impl.template.APITemplateBuilder;
 import org.wso2.carbon.apimgt.impl.template.APITemplateBuilderImpl;
 import org.wso2.carbon.apimgt.impl.template.APITemplateException;
 import org.wso2.carbon.apimgt.impl.template.ThrottlePolicyTemplateBuilder;
+import org.wso2.carbon.apimgt.impl.token.ClaimsRetriever;
 import org.wso2.carbon.apimgt.impl.utils.APIAuthenticationAdminClient;
 import org.wso2.carbon.apimgt.impl.utils.APINameComparator;
 import org.wso2.carbon.apimgt.impl.utils.APIStoreNameComparator;
@@ -123,6 +145,7 @@ import org.wso2.carbon.apimgt.impl.utils.APIUtil;
 import org.wso2.carbon.apimgt.impl.utils.APIVersionComparator;
 import org.wso2.carbon.apimgt.impl.utils.APIVersionStringComparator;
 import org.wso2.carbon.apimgt.impl.utils.CertificateMgtUtils;
+import org.wso2.carbon.apimgt.impl.utils.LocalEntryAdminClient;
 import org.wso2.carbon.apimgt.impl.workflow.APIStateWorkflowDTO;
 import org.wso2.carbon.apimgt.impl.workflow.WorkflowConstants;
 import org.wso2.carbon.apimgt.impl.workflow.WorkflowException;
@@ -131,7 +154,6 @@ import org.wso2.carbon.apimgt.impl.workflow.WorkflowExecutorFactory;
 import org.wso2.carbon.apimgt.impl.workflow.WorkflowStatus;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.databridge.commons.Event;
-import org.wso2.carbon.event.output.adapter.core.OutputEventAdapterService;
 import org.wso2.carbon.governance.api.common.dataobjects.GovernanceArtifact;
 import org.wso2.carbon.governance.api.exception.GovernanceException;
 import org.wso2.carbon.governance.api.generic.GenericArtifactManager;
@@ -160,7 +182,6 @@ import org.wso2.carbon.user.api.AuthorizationManager;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
-import org.wso2.carbon.apimgt.impl.utils.LocalEntryAdminClient;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -181,6 +202,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.StringTokenizer;
 import java.util.TreeSet;
@@ -188,12 +210,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 import javax.cache.Cache;
 import javax.cache.Caching;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 
-import static org.wso2.carbon.apimgt.impl.utils.APIUtil.handleException;
 import static org.wso2.carbon.apimgt.impl.utils.APIUtil.isAllowDisplayAPIsWithMultipleStatus;
 
 /**
@@ -779,7 +802,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         String tenantDomain = MultitenantUtils
                 .getTenantDomain(APIUtil.replaceEmailDomainBack(api.getId().getProviderName()));
         validateResourceThrottlingTiers(api, tenantDomain);
-
+        validateKeyManagers(api);
         RegistryService registryService = ServiceReferenceHolder.getInstance().getRegistryService();
 
         //Add default API LC if it is not there
@@ -821,7 +844,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             throw new APIManagementException(
                     "Error in retrieving Tenant Information while adding api :" + api.getId().getApiName(), e);
         }
-        apiMgtDAO.addAPI(api, tenantId);
+        addAPI(api, tenantId);
 
         JSONObject apiLogObject = new JSONObject();
         apiLogObject.put(APIConstants.AuditLogConstants.NAME, api.getId().getApiName());
@@ -852,18 +875,134 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         }
 
         //notify key manager with API addition
-        registerOrUpdateResourceInKeyManager(api);
+        registerOrUpdateResourceInKeyManager(api, tenantDomain);
     }
+
+    /**
+     * Add API metadata, local scopes and URI templates to the database and KeyManager.
+     *
+     * @param api      API to add
+     * @param tenantId Tenant Id
+     * @throws APIManagementException if an error occurs while adding the API
+     */
+    private void addAPI(API api, int tenantId) throws APIManagementException {
+
+        int apiId = apiMgtDAO.addAPI(api, tenantId);
+        addLocalScopes(api.getId(), tenantId, api.getUriTemplates());
+        addURITemplates(apiId, api, tenantId);
+        String tenantDomain = MultitenantUtils
+                .getTenantDomain(APIUtil.replaceEmailDomainBack(api.getId().getProviderName()));
+        APIEvent apiEvent = new APIEvent(UUID.randomUUID().toString(), System.currentTimeMillis(),
+                APIConstants.EventType.API_CREATE.name(), tenantId, tenantDomain, api.getId().getApiName(), apiId,
+                api.getId().getVersion(), api.getType(), api.getContext(), api.getId().getProviderName(),
+                api.getStatus());
+        APIUtil.sendNotification(apiEvent, APIConstants.NotifierType.API.name());
+    }
+
+    /**
+     * Add local scopes for the API if the scopes does not exist as shared scopes. The local scopes to add will be
+     * take from the URI templates.
+     *
+     * @param apiIdentifier API Identifier
+     * @param uriTemplates  URI Templates
+     * @param tenantId      Tenant Id
+     * @throws APIManagementException if fails to add local scopes for the API
+     */
+    private void addLocalScopes(APIIdentifier apiIdentifier, int tenantId, Set<URITemplate> uriTemplates)
+            throws APIManagementException {
+
+        String tenantDomain = APIUtil.getTenantDomainFromTenantId(tenantId);
+        KeyManager keyManager = KeyManagerHolder.getKeyManagerInstance(tenantDomain);
+        //Get the local scopes set to register for the API from URI templates
+        Set<Scope> scopesToRegister = getScopesToRegisterFromURITemplates(apiIdentifier, tenantId, uriTemplates);
+        //Register scopes
+        for (Scope scope : scopesToRegister) {
+            String scopeKey = scope.getKey();
+            // Check if key already registered in KM. Scope Key may be already registered for a different version.
+            if (!keyManager.isScopeExists(scopeKey)) {
+                //register scope in KM
+                keyManager.registerScope(scope);
+            } else {
+                if (log.isDebugEnabled()) {
+                    log.debug("Scope: " + scopeKey + " already registered in KM. Skipping registering scope.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract the scopes set from URI templates which needs to be registered as local scopes for the API.
+     *
+     * @param apiIdentifier API Identifier
+     * @param tenantId      Tenant Id
+     * @param uriTemplates  URI templates
+     * @return Local Scopes set to register
+     * @throws APIManagementException if fails to extract Scopes from URI templates
+     */
+    private Set<Scope> getScopesToRegisterFromURITemplates(APIIdentifier apiIdentifier, int tenantId,
+                                                           Set<URITemplate> uriTemplates)
+            throws APIManagementException {
+
+        String tenantDomain = APIUtil.getTenantDomainFromTenantId(tenantId);
+        Set<Scope> scopesToRegister = new HashSet<>();
+        Set<Scope> uriTemplateScopes = new HashSet<>();
+        //Get the attached scopes set from the URI templates
+        for (URITemplate uriTemplate : uriTemplates) {
+            List<Scope> scopesFromURITemplate = uriTemplate.retrieveAllScopes();
+            for (Scope scopeFromURITemplate : scopesFromURITemplate) {
+                if (scopeFromURITemplate == null) {
+                    continue; // No scopes attached for the URI Template
+                }
+                uriTemplateScopes.add(scopeFromURITemplate);
+            }
+        }
+
+        //Validate and extract only the local scopes which need to be registered in KM
+        for (Scope scope : uriTemplateScopes) {
+            String scopeKey = scope.getKey();
+            //Check if it an existing shared scope, if so skip adding scope
+            if (!isSharedScopeNameExists(scopeKey, tenantDomain)) {
+                // Check if scope key is already assigned locally to a different API (Other than different versions of
+                // the same API).
+                if (!isScopeKeyAssignedLocally(apiIdentifier, scope.getKey(), tenantId)) {
+                    scopesToRegister.add(scope);
+                } else {
+                    throw new APIManagementException("Error while adding local scopes for API " + apiIdentifier
+                            + ". Scope: " + scopeKey + " already assigned locally for a different API.");
+                }
+            } else if (log.isDebugEnabled()) {
+                log.debug("Scope " + scopeKey + " exists as a shared scope. Skip adding as a local scope.");
+            }
+        }
+        return scopesToRegister;
+    }
+
+    /**
+     * Add URI templates for the API.
+     *
+     * @param apiId    API Id
+     * @param api      API
+     * @param tenantId Tenant Id
+     * @throws APIManagementException if fails to add URI templates for the API
+     */
+    private void addURITemplates(int apiId, API api, int tenantId) throws APIManagementException {
+
+        String tenantDomain = APIUtil.getTenantDomainFromTenantId(tenantId);
+        apiMgtDAO.addURITemplates(apiId, api, tenantId);
+        KeyManagerHolder.getKeyManagerInstance(tenantDomain).attachResourceScopes(api, api.getUriTemplates());
+    }
+
 
     /**
      * Notify the key manager with API update or addition
      *
      * @param api API
+     * @param tenantDomain
      * @throws APIManagementException when error occurs when register/update API at Key Manager side
      */
-    private void registerOrUpdateResourceInKeyManager(API api) throws APIManagementException {
+    private void registerOrUpdateResourceInKeyManager(API api, String tenantDomain) throws APIManagementException {
         //get new key manager instance for  resource registration.
-        KeyManager keyManager = KeyManagerHolder.getKeyManagerInstance();
+        KeyManager keyManager = KeyManagerHolder.getKeyManagerInstance(tenantDomain);
         Map registeredResource = keyManager.getResourceByApiId(api.getId().toString());
         if (registeredResource == null) {
             boolean isNewResourceRegistered = keyManager.registerNewResource(api, null);
@@ -880,6 +1019,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             keyManager.updateRegisteredResource(api, registeredResource);
         }
     }
+
 
     /**
      * Validates the name and version of api against illegal characters.
@@ -912,6 +1052,25 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         }
     }
 
+    public void deleteSubscriptionBlockCondition(String conditionValue)
+            throws APIManagementException {
+        BlockConditionsDTO blockCondition = apiMgtDAO.getSubscriptionBlockCondition(conditionValue, tenantDomain);
+        if (blockCondition != null) {
+            deleteBlockConditionByUUID(blockCondition.getUUID());
+        }
+    }
+
+    /**
+     * This method is used to get the context of API identified by the given APIIdentifier
+     *
+     * @param apiId api identifier
+     * @return apiContext
+     * @throws APIManagementException if failed to fetch the context for apiID
+     */
+    public String getAPIContext(APIIdentifier apiId) throws APIManagementException {
+        return apiMgtDAO.getAPIContext(apiId);
+    }
+
     /**
      * Check whether a string contains illegal charactersA
      *
@@ -923,7 +1082,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         Matcher matcher = pattern.matcher(toExamine);
         return matcher.find();
     }
-    
+
 
     /**
      * Check whether the provided information exceeds the maximum length
@@ -1125,7 +1284,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         if (!isValid) {
             throw new APIManagementException(" User doesn't have permission for update");
         }
-
+        validateKeyManagers(api);
         Map<String, Map<String, String>> failedGateways = new ConcurrentHashMap<>();
         API oldApi = getAPI(api.getId());
         Gson gson = new Gson();
@@ -1221,7 +1380,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             //get product resource mappings on API before updating the API. Update uri templates on api will remove all
             //product mappings as well.
             List<APIProductResource> productResources = apiMgtDAO.getProductMappingsForAPI(api);
-            apiMgtDAO.updateAPI(api, tenantId, userNameWithoutChange);
+            updateAPI(api, tenantId, userNameWithoutChange);
             updateProductResourceMappings(api, productResources);
 
             if (log.isDebugEnabled()) {
@@ -1237,9 +1396,15 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             APIUtil.logAuditMessage(APIConstants.AuditLogConstants.API, apiLogObject.toString(),
                     APIConstants.AuditLogConstants.UPDATED, this.username);
 
-                APIManagerConfiguration config = ServiceReferenceHolder.getInstance().
-                        getAPIManagerConfigurationService().getAPIManagerConfiguration();
-                boolean gatewayExists = config.getApiGatewayEnvironments().size() > 0;
+            APIManagerConfiguration config = ServiceReferenceHolder.getInstance().
+                    getAPIManagerConfigurationService().getAPIManagerConfiguration();
+            boolean gatewayExists;
+            if (config.getGatewayArtifactSynchronizerProperties().isPublishDirectlyToGatewayEnabled()) {
+                gatewayExists = config.getApiGatewayEnvironments().size() > 0;
+            } else {
+                gatewayExists = config.getApiGatewayEnvironments().size() > 0 || getAllLabels(tenantDomain).size() > 0;
+
+            }
                 String gatewayType = config.getFirstProperty(APIConstants.API_GATEWAY_TYPE);
                 boolean isAPIPublished = false;
                 // gatewayType check is required when API Management is deployed on other servers to avoid synapse
@@ -1261,22 +1426,51 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                             apiPublished.setOldOutSequence(oldApi.getOutSequence());
                             //old api contain what environments want to remove
                             Set<String> environmentsToRemove = new HashSet<String>(oldApi.getEnvironments());
+                            List<Label> labelsToRemove = null;
+                            if (oldApi.getGatewayLabels() != null){
+                                 labelsToRemove = new ArrayList<>(oldApi.getGatewayLabels());
+                            } else {
+                                 labelsToRemove = new ArrayList<>();
+                            }
+
                             //updated api contain what environments want to add
                             Set<String> environmentsToPublish = new HashSet<String>(apiPublished.getEnvironments());
+                            List<Label> labelsToPublish;
+                            List<Label> labelsRemoved = null;
+                            if (apiPublished.getGatewayLabels() != null ){
+                                labelsToPublish = new ArrayList<>(apiPublished.getGatewayLabels());
+                                labelsRemoved = new ArrayList<>(oldApi.getGatewayLabels());
+                            } else {
+                                labelsToPublish = new ArrayList<>();
+                                labelsRemoved = new ArrayList<>();
+                            }
                             Set<String> environmentsRemoved = new HashSet<String>(oldApi.getEnvironments());
+
                             if (!environmentsToPublish.isEmpty() && !environmentsToRemove.isEmpty()) {
                                 // this block will sort what gateways have to remove and published
                                 environmentsRemoved.retainAll(environmentsToPublish);
                                 environmentsToRemove.removeAll(environmentsRemoved);
                             }
-                            // map contain failed to publish Environments
-                            Map<String, String> failedToPublishEnvironments = publishToGateway(apiPublished);
+
+                            if (!labelsToPublish.isEmpty() && !labelsToRemove.isEmpty()) {
+                                // this block will sort what gateways have to remove and published
+                                labelsRemoved.retainAll(labelsToPublish);
+                                labelsToRemove.removeAll(labelsRemoved);
+                            }
                             apiPublished.setEnvironments(environmentsToRemove);
+                            apiPublished.setGatewayLabels(labelsToRemove);
                             // map contain failed to remove Environments
                             Map<String, String> failedToRemoveEnvironments = removeFromGateway(apiPublished);
+
+                            apiPublished.setEnvironments(environmentsToPublish);
+                            apiPublished.setGatewayLabels(labelsToPublish);
+                            // map contain failed to publish Environments
+                            Map<String, String> failedToPublishEnvironments = publishToGateway(apiPublished);
+
                             environmentsToPublish.removeAll(failedToPublishEnvironments.keySet());
                             environmentsToPublish.addAll(failedToRemoveEnvironments.keySet());
                             apiPublished.setEnvironments(environmentsToPublish);
+                            apiPublished.setGatewayLabels(labelsToPublish);
                             updateApiArtifact(apiPublished, true, false);
                             failedGateways.clear();
                             failedGateways.put("UNPUBLISHED", failedToRemoveEnvironments);
@@ -1354,7 +1548,107 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         }
 
         //notify key manager with API update
-        registerOrUpdateResourceInKeyManager(api);
+        registerOrUpdateResourceInKeyManager(api, tenantDomain);
+
+        int apiId = apiMgtDAO.getAPIID(api.getId(), null);
+
+        APIEvent apiEvent = new APIEvent(UUID.randomUUID().toString(), System.currentTimeMillis(),
+                APIConstants.EventType.API_UPDATE.name(), tenantId, tenantDomain, api.getId().getApiName(), apiId,
+                api.getId().getVersion(), api.getType(), api.getContext(), api.getId().getProviderName(),
+                api.getStatus());
+        APIUtil.sendNotification(apiEvent, APIConstants.NotifierType.API.name());
+    }
+
+    private void validateKeyManagers(API api) throws APIManagementException {
+
+        List<KeyManagerConfigurationDTO> keyManagerConfigurationsByTenant =
+                apiMgtDAO.getKeyManagerConfigurationsByTenant(tenantDomain);
+        List<String> configuredMissingKeyManagers = new ArrayList<>();
+        for (String keyManager : api.getKeyManagers()) {
+            if (!APIConstants.KeyManager.API_LEVEL_ALL_KEY_MANAGERS.equals(keyManager)) {
+                KeyManagerConfigurationDTO selectedKeyManager = null;
+                for (KeyManagerConfigurationDTO keyManagerConfigurationDTO : keyManagerConfigurationsByTenant) {
+                    if (keyManager.equals(keyManagerConfigurationDTO.getName())) {
+                        selectedKeyManager = keyManagerConfigurationDTO;
+                        break;
+                    }
+                }
+                if (selectedKeyManager == null) {
+                    configuredMissingKeyManagers.add(keyManager);
+                }
+            }
+        }
+        if (!configuredMissingKeyManagers.isEmpty()) {
+            throw new APIManagementException(
+                    "Key Manager(s) Not found :" + String.join(" , ", configuredMissingKeyManagers),
+                    ExceptionCodes.KEY_MANAGER_NOT_FOUND);
+        }
+    }
+
+    /**
+     * Update API metadata and resources.
+     *
+     * @param api      API to update
+     * @param tenantId Tenant Id
+     * @param username Username of the user who is updating
+     * @throws APIManagementException If fails to update API.
+     */
+    private void updateAPI(API api, int tenantId, String username) throws APIManagementException {
+
+        apiMgtDAO.updateAPI(api, username);
+        if (log.isDebugEnabled()) {
+            log.debug("Successfully updated the API: " + api.getId() + " metadata in the database");
+        }
+        updateAPIResources(api, tenantId);
+    }
+
+    /**
+     * Update resources of the API including local scopes and resource to scope attachments.
+     *
+     * @param api      API
+     * @param tenantId Tenant Id
+     * @throws APIManagementException If fails to update local scopes of the API.
+     */
+    private void updateAPIResources(API api, int tenantId) throws APIManagementException {
+
+        String tenantDomain = APIUtil.getTenantDomainFromTenantId(tenantId);
+        APIIdentifier apiIdentifier = api.getId();
+        // Get the new URI templates for the API
+        Set<URITemplate> uriTemplates = api.getUriTemplates();
+        // Get the existing local scope keys attached for the API
+        Set<String> oldLocalScopeKeys = apiMgtDAO.getAllLocalScopeKeysForAPI(apiIdentifier, tenantId);
+        // Get the existing URI templates for the API
+        Set<URITemplate> oldURITemplates = apiMgtDAO.getURITemplatesOfAPI(apiIdentifier);
+        // Get the new local scope keys from URI templates
+        Set<Scope> newLocalScopes = getScopesToRegisterFromURITemplates(apiIdentifier, tenantId, uriTemplates);
+        Set<String> newLocalScopeKeys = newLocalScopes.stream().map(Scope::getKey).collect(Collectors.toSet());
+        // Get the existing versioned local scope keys attached for the API
+        Set<String> oldVersionedLocalScopeKeys = apiMgtDAO.getVersionedLocalScopeKeysForAPI(apiIdentifier, tenantId);
+        // Get the existing versioned local scope keys which needs to be removed (not updated) from the current updating
+        // API and remove them from the oldLocalScopeKeys set before sending to KM, so that they will not be removed
+        // from KM and can be still used by other versioned APIs.
+        Iterator oldLocalScopesItr = oldLocalScopeKeys.iterator();
+        while (oldLocalScopesItr.hasNext()) {
+            String oldLocalScopeKey = (String) oldLocalScopesItr.next();
+            // if the scope is used in versioned APIs and it is not in new local scope key set
+            if (oldVersionedLocalScopeKeys.contains(oldLocalScopeKey)
+                    && !newLocalScopeKeys.contains(oldLocalScopeKey)) {
+                //remove from old local scope key set which will be send to KM
+                oldLocalScopesItr.remove();
+            }
+        }
+        apiMgtDAO.updateURITemplates(api, tenantId);
+        if (log.isDebugEnabled()) {
+            log.debug("Successfully updated the URI templates of API: " + apiIdentifier + " in the database");
+        }
+        // Update the resource scopes of the API in KM.
+        // Need to remove the old local scopes and register new local scopes and, update the resource scope mappings
+        // using the updated URI templates of the API.
+        KeyManagerHolder.getKeyManagerInstance(tenantDomain).updateResourceScopes(api, oldLocalScopeKeys, newLocalScopes,
+                oldURITemplates, uriTemplates);
+        if (log.isDebugEnabled()) {
+            log.debug("Successfully updated the resource scopes of API: " + apiIdentifier + " in Key Manager");
+        }
     }
 
     private void updateEndpointSecurity(API oldApi, API api) throws APIManagementException {
@@ -1366,6 +1660,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 }
                 api.setEndpointUTUsername(oldApi.getEndpointUTUsername());
                 api.setEndpointUTPassword(oldApi.getEndpointUTPassword());
+
                 if (log.isDebugEnabled()) {
                     log.debug("Using the previous username and password for endpoint security");
                 }
@@ -1393,6 +1688,14 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                                         StringUtils.isBlank(endpointSecurity.getPassword())) {
                                     endpointSecurity.setUsername(oldEndpointSecurity.getUsername());
                                     endpointSecurity.setPassword(oldEndpointSecurity.getPassword());
+                                    if (endpointSecurity.getType().equals(APIConstants.ENDPOINT_SECURITY_TYPE_OAUTH)) {
+                                        endpointSecurity.setUniqueIdentifier(oldEndpointSecurity.getUniqueIdentifier());
+                                        endpointSecurity.setGrantType(oldEndpointSecurity.getGrantType());
+                                        endpointSecurity.setTokenUrl(oldEndpointSecurity.getTokenUrl());
+                                        endpointSecurity.setClientId(oldEndpointSecurity.getClientId());
+                                        endpointSecurity.setClientSecret(oldEndpointSecurity.getClientSecret());
+                                        endpointSecurity.setCustomParameters(oldEndpointSecurity.getCustomParameters());
+                                    }
                                 }
                                 endpointSecurityJson.replace(APIConstants.ENDPOINT_SECURITY_PRODUCTION, new JSONParser()
                                         .parse(new ObjectMapper().writeValueAsString(endpointSecurity)));
@@ -1410,6 +1713,14 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                                         StringUtils.isBlank(endpointSecurity.getPassword())) {
                                     endpointSecurity.setUsername(oldEndpointSecurity.getUsername());
                                     endpointSecurity.setPassword(oldEndpointSecurity.getPassword());
+                                    if (endpointSecurity.getType().equals(APIConstants.ENDPOINT_SECURITY_TYPE_OAUTH)) {
+                                        endpointSecurity.setUniqueIdentifier(oldEndpointSecurity.getUniqueIdentifier());
+                                        endpointSecurity.setGrantType(oldEndpointSecurity.getGrantType());
+                                        endpointSecurity.setTokenUrl(oldEndpointSecurity.getTokenUrl());
+                                        endpointSecurity.setClientId(oldEndpointSecurity.getClientId());
+                                        endpointSecurity.setClientSecret(oldEndpointSecurity.getClientSecret());
+                                        endpointSecurity.setCustomParameters(oldEndpointSecurity.getCustomParameters());
+                                    }
                                 }
                                 endpointSecurityJson.replace(APIConstants.ENDPOINT_SECURITY_SANDBOX,
                                         new JSONParser()
@@ -2001,9 +2312,51 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         Collections.sort(sortedAPIs, comparator);
         for (int i = sortedAPIs.size() - 1; i >= 0; i--) {
             String oldVersion = sortedAPIs.get(i).getId().getVersion();
-            apiMgtDAO.makeKeysForwardCompatible(new ApiTypeWrapper(api), oldVersion
-            );
+            apiMgtDAO.makeKeysForwardCompatible(new ApiTypeWrapper(api), oldVersion);
         }
+    }
+
+    /**
+     * Returns the subscriber name for the given subscription id.
+     *
+     * @param subscriptionId The subscription id of the subscriber to be returned
+     * @return The subscriber or null if the requested subscriber does not exist
+     * @throws APIManagementException if failed to get Subscriber
+     */
+    @Override
+    public String getSubscriber(String subscriptionId) throws APIManagementException {
+        return apiMgtDAO.getSubscriberName(subscriptionId);
+    }
+
+    /**
+     * Returns the claims of subscriber for the given subscriber.
+     *
+     * @param subscriber The name of the subscriber to be returned
+     * @return The looked up claims of the subscriber or null if the requested subscriber does not exist
+     * @throws APIManagementException if failed to get Subscriber
+     */
+    @Override
+    public Map<String, String> getSubscriberClaims(String subscriber) throws APIManagementException {
+        String tenantDomain = MultitenantUtils.getTenantDomain(subscriber);
+        int tenantId = 0;
+        Map<String, String> claimMap = new HashMap<>();
+        try {
+            tenantId = getTenantId(tenantDomain);
+        SortedMap<String, String> subscriberClaims =
+                APIUtil.getClaims(subscriber, tenantId, ClaimsRetriever.DEFAULT_DIALECT_URI);
+        APIManagerConfiguration configuration = getAPIManagerConfiguration();
+        String configuredClaims = configuration
+                .getFirstProperty(APIConstants.API_PUBLISHER_SUBSCRIBER_CLAIMS);
+        if (subscriberClaims != null) {
+            for (String claimURI : configuredClaims.split(",")) {
+                claimMap.put(claimURI, subscriberClaims.get(claimURI));
+            }
+        }
+        } catch (UserStoreException e) {
+            throw new APIManagementException("Error while retrieving tenant id for tenant domain "
+                    + tenantDomain, e);
+        }
+        return claimMap;
     }
 
     private Map<String, String> publishToGateway(API api) throws APIManagementException {
@@ -2477,7 +2830,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 }
             }
 
-            Map<String, String> authProperties = new HashMap<String, String>();
+            Map<String, String> authProperties = new HashMap<>();
             if (!StringUtils.isBlank(authorizationHeader)) {
                 authProperties.put(APIConstants.AUTHORIZATION_HEADER, authorizationHeader);
             }
@@ -2498,7 +2851,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                         APIConstants.REMOVE_OAUTH_HEADER_FROM_OUT_MESSAGE_DEFAULT);
             }
             authProperties.put(APIConstants.API_UUID, api.getUUID());
-
+            authProperties.put("keyManagers", String.join(",", api.getKeyManagers()));
             if (APIConstants.GRAPHQL_API.equals(api.getType())) {
                 Map<String, String> apiUUIDProperty = new HashMap<String, String>();
                 apiUUIDProperty.put(APIConstants.API_UUID, api.getUUID());
@@ -2507,6 +2860,11 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             }
             vtb.addHandler("org.wso2.carbon.apimgt.gateway.handlers.security.APIAuthenticationHandler",
                     authProperties);
+
+            if (APIConstants.GRAPHQL_API.equals(api.getType())) {
+                vtb.addHandler("org.wso2.carbon.apimgt.gateway.handlers.graphQL.GraphQLQueryAnalysisHandler", Collections.<String, String>emptyMap());
+            }
+
             Map<String, String> properties = new HashMap<String, String>();
 
             boolean isGlobalThrottlingEnabled = APIUtil.isAdvanceThrottlingEnabled();
@@ -2535,7 +2893,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                     , Collections.<String, String>emptyMap());
 
             properties = new HashMap<String, String>();
-            properties.put("configKey", "gov:" + APIConstants.GA_CONFIGURATION_LOCATION);
+            properties.put("configKey", APIConstants.GA_CONF_KEY);
             vtb.addHandler(
                     "org.wso2.carbon.apimgt.gateway.handlers.analytics.APIMgtGoogleAnalyticsTrackingHandler"
                     , properties);
@@ -2696,7 +3054,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 , Collections.<String, String>emptyMap());
 
         properties = new HashMap<String, String>();
-        properties.put("configKey", "gov:" + APIConstants.GA_CONFIGURATION_LOCATION);
+        properties.put("configKey", APIConstants.GA_CONF_KEY);
         vtb.addHandler(
                 "org.wso2.carbon.apimgt.gateway.handlers.analytics.APIMgtGoogleAnalyticsTrackingHandler"
                 , properties);
@@ -2747,8 +3105,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
     public void addFileToDocumentation(APIIdentifier apiId, Documentation documentation, String filename,
                                        InputStream content, String contentType) throws APIManagementException {
         if (Documentation.DocumentSourceType.FILE.equals(documentation.getSourceType())) {
-            contentType = "application/force-download";
-            ResourceFile icon = new ResourceFile(content, contentType);
+            ResourceFile icon = new ResourceFile(content, "application/force-download");
             String filePath = APIUtil.getDocumentationFilePath(apiId, filename);
             API api;
             try {
@@ -2888,6 +3245,8 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             if (registry.resourceExists(targetPath)) {
                 apiTargetArtifact = registry.get(targetPath);
             }
+
+            JSONObject additionProperties = new JSONObject();
             if (apiTargetArtifact != null) {
                 // Copying all the properties.
                 Properties properties = apiSourceArtifact.getProperties();
@@ -2897,6 +3256,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                         String propertyName = (String) propertyNames.nextElement();
                         if (propertyName.startsWith(APIConstants.API_RELATED_CUSTOM_PROPERTIES_PREFIX)) {
                             apiTargetArtifact.setProperty(propertyName, apiSourceArtifact.getProperty(propertyName));
+                            additionProperties.put(propertyName, apiSourceArtifact.getProperty(propertyName));
                         }
                     }
                 }
@@ -2931,6 +3291,11 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             APIIdentifier newId = new APIIdentifier(api.getId().getProviderName(),
                     api.getId().getApiName(), newVersion);
             API newAPI = getAPI(newId, api.getId(), oldContext);
+
+            //Populate additional properties in the API object
+            if (additionProperties.size() != 0) {
+                newAPI.setAdditionalProperties(additionProperties);
+            }
 
             if (api.isDefaultVersion()) {
                 newAPI.setAsDefaultVersion(true);
@@ -3020,18 +3385,17 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                         + api.getId().getApiName(), e);
             }
 
-            apiMgtDAO.addAPI(newAPI, tenantId);
+            addAPI(newAPI, tenantId);
             registry.commitTransaction();
             transactionCommitted = true;
 
             //notify key manager with API addition
-            registerOrUpdateResourceInKeyManager(newAPI);
+            registerOrUpdateResourceInKeyManager(newAPI,tenantDomain);
 
             if (log.isDebugEnabled()) {
                 String logMessage = "Successfully created new version : " + newVersion + " of : " + api.getId().getApiName();
                 log.debug(logMessage);
             }
-
         } catch (DuplicateAPIException e) {
             throw e;
         } catch (ParseException e) {
@@ -3442,7 +3806,6 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         if (api.isEndpointSecured() && StringUtils.isEmpty(api.getEndpointUTPassword())) {
             String errorMessage = "Empty password is given for endpointSecurity when creating API "
                     + api.getId().getApiName();
-            log.error(errorMessage);
             throw new APIManagementException(errorMessage);
         }
 
@@ -3649,6 +4012,15 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
      */
     public void updateSubscription(SubscribedAPI subscribedAPI) throws APIManagementException {
         apiMgtDAO.updateSubscription(subscribedAPI);
+        subscribedAPI = apiMgtDAO.getSubscriptionByUUID(subscribedAPI.getUUID());
+        int apiId = apiMgtDAO.getAPIID(subscribedAPI.getApiId(), null);
+        String tenantDomain = MultitenantUtils
+                .getTenantDomain(APIUtil.replaceEmailDomainBack(subscribedAPI.getApiId().getProviderName()));
+        SubscriptionEvent subscriptionEvent = new SubscriptionEvent(UUID.randomUUID().toString(),
+                System.currentTimeMillis(), APIConstants.EventType.SUBSCRIPTIONS_UPDATE.name(), tenantId, tenantDomain,
+                subscribedAPI.getSubscriptionId(), apiId,
+                subscribedAPI.getApplication().getId(), subscribedAPI.getTier().getName(), subscribedAPI.getSubStatus());
+        APIUtil.sendNotification(subscriptionEvent, APIConstants.NotifierType.SUBSCRIPTIONS.name());
     }
 
     public void deleteAPI(APIIdentifier identifier, String apiUuid) throws APIManagementException {
@@ -3740,6 +4112,8 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 api.setOutSequence(outSequence);
 
                 api.setEnvironments(APIUtil.extractEnvironmentsForAPI(environments));
+                api.setGatewayLabels(APIUtil.getLabelsFromAPIGovernanceArtifact(apiArtifact,
+                        api.getId().getProviderName()));
                 api.setEndpointConfig(apiArtifact.getAttribute(APIConstants.API_OVERVIEW_ENDPOINT_CONFIG));
                 removeFromGateway(api);
                 if (api.isDefaultVersion()) {
@@ -3765,7 +4139,41 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 contextCache.remove(context);
                 contextCache.put(context, Boolean.FALSE);
             }
-            apiMgtDAO.deleteAPI(identifier);
+            deleteAPI(api);
+            /**
+             * Delete the API in Kubernetes
+             */
+            JSONArray containerMgt = APIUtil.getAllClustersFromConfig();
+            Set<DeploymentEnvironments> deploymentEnvironments = api.getDeploymentEnvironments();
+            if (deploymentEnvironments != null && !deploymentEnvironments.isEmpty()) {
+                for (DeploymentEnvironments deploymentEnvironment : deploymentEnvironments) {
+                    if (deploymentEnvironment.getType().equalsIgnoreCase(ContainerBasedConstants.DEPLOYMENT_ENV)) {
+                        if (!containerMgt.isEmpty() && deploymentEnvironment.getClusterNames().size() != 0) {
+
+                            for (Object containerMgtObj : containerMgt) {
+                                JSONObject containerMgtDetails = (JSONObject) containerMgtObj;
+                                if (containerMgtDetails.get(ContainerBasedConstants.TYPE).toString()
+                                        .equalsIgnoreCase(ContainerBasedConstants.DEPLOYMENT_ENV)) {
+                                    for (String clusterId : deploymentEnvironment.getClusterNames()) {
+                                        JSONArray containerMgtInfo = (JSONArray) containerMgtDetails
+                                                .get(ContainerBasedConstants.CONTAINER_MANAGEMENT_INFO);
+                                        for (Object containerMgtInfoObj : containerMgtInfo) {
+                                            JSONObject containerMgtInfoDetails = (JSONObject) containerMgtInfoObj;
+                                            if (clusterId.equalsIgnoreCase(containerMgtInfoDetails
+                                                    .get(ContainerBasedConstants.CLUSTER_NAME).toString())) {
+                                                ContainerManager containerManager =
+                                                        getContainerManagerInstance(containerMgtDetails
+                                                                .get(ContainerBasedConstants.CLASS_NAME).toString());
+                                                    containerManager.deleteAPI(identifier, containerMgtInfoDetails);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                        }
+                    }
+                }
+            }
             if (log.isDebugEnabled()) {
                 String logMessage =
                         "API Name: " + api.getId().getApiName() + ", API Version " + api.getId().getVersion()
@@ -3824,14 +4232,56 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 apiStateChangeWFExecutor.cleanUpPendingTask(wfDTO.getExternalWorkflowReference());
             }
             */
-            KeyManager keyManager = KeyManagerHolder.getKeyManagerInstance();
+            KeyManager keyManager = KeyManagerHolder.getKeyManagerInstance(tenantDomain);
             if (identifier.toString() != null) {
                 keyManager.deleteRegisteredResourceByAPIId(identifier.toString());
             }
+
+            APIEvent apiEvent = new APIEvent(UUID.randomUUID().toString(), System.currentTimeMillis(),
+                    APIConstants.EventType.API_DELETE.name(), tenantId, tenantDomain, api.getId().getApiName(), apiId,
+                    api.getId().getVersion(), api.getType(), api.getContext(), api.getId().getProviderName(),
+                    api.getStatus());
+            APIUtil.sendNotification(apiEvent, APIConstants.NotifierType.API.name());
+
         } catch (RegistryException e) {
             handleException("Failed to remove the API from : " + path, e);
         } catch (WorkflowException e) {
             handleException("Failed to execute workflow cleanup task ", e);
+        }
+    }
+
+    /**
+     * Deletes API from the database and delete local scopes and resource scope attachments from KM.
+     *
+     * @param api API to delete
+     * @throws APIManagementException if fails to delete the API
+     */
+    private void deleteAPI(API api) throws APIManagementException {
+
+        APIIdentifier apiIdentifier = api.getId();
+        int tenantId = APIUtil.getTenantId(APIUtil.replaceEmailDomainBack(apiIdentifier.getProviderName()));
+        String tenantDomain = APIUtil.getTenantDomainFromTenantId(tenantId);
+        // Get local scopes for the given API which are not already assigned for different versions of the same API
+        Set<String> localScopeKeysToDelete = apiMgtDAO.getUnversionedLocalScopeKeysForAPI(apiIdentifier, tenantId);
+        // Get the URI Templates for the given API to detach the resources scopes from
+        Set<URITemplate> uriTemplates = apiMgtDAO.getURITemplatesOfAPI(apiIdentifier);
+        // Detach all the resource scopes from the API resources in KM
+        KeyManagerHolder.getKeyManagerInstance(tenantDomain).detachResourceScopes(api, uriTemplates);
+        if (log.isDebugEnabled()) {
+            log.debug("Resource scopes are successfully detached for the API : " + apiIdentifier
+                    + " from KeyManager.");
+        }
+        // remove the local scopes from the KM
+        for (String localScope : localScopeKeysToDelete) {
+            KeyManagerHolder.getKeyManagerInstance(tenantDomain).deleteScope(localScope);
+        }
+        if (log.isDebugEnabled()) {
+            log.debug("Local scopes are successfully deleted for the API : " + apiIdentifier
+                    + " from KeyManager.");
+        }
+        apiMgtDAO.deleteAPI(apiIdentifier);
+        if (log.isDebugEnabled()) {
+            log.debug("API : " + apiIdentifier + " is successfully deleted from the database and KeyManager.");
         }
     }
 
@@ -5064,6 +5514,36 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         }
     }
 
+    @Override
+    public void addAPIProductSwagger(Map<API, List<APIProductResource>> apiToProductResourceMapping, APIProduct apiProduct)
+            throws APIManagementException {
+        APIDefinition parser = new OAS3Parser();
+        SwaggerData swaggerData = new SwaggerData(apiProduct);
+        String apiProductSwagger = parser.generateAPIDefinition(swaggerData);
+
+        apiProductSwagger = OASParserUtil.updateAPIProductSwaggerOperations(apiToProductResourceMapping, apiProductSwagger);
+
+        saveSwagger20Definition(apiProduct.getId(), apiProductSwagger);
+        apiProduct.setDefinition(apiProductSwagger);
+    }
+
+    @Override
+    public void updateAPIProductSwagger(Map<API, List<APIProductResource>> apiToProductResourceMapping, APIProduct apiProduct)
+            throws APIManagementException, FaultGatewaysException {
+        APIDefinition parser = new OAS3Parser();
+        SwaggerData updatedData = new SwaggerData(apiProduct);
+        String existingProductSwagger = getAPIDefinitionOfAPIProduct(apiProduct);
+        String updatedProductSwagger = parser.generateAPIDefinition(updatedData, existingProductSwagger);
+
+        updatedProductSwagger = OASParserUtil.updateAPIProductSwaggerOperations(apiToProductResourceMapping,
+                updatedProductSwagger);
+
+        saveSwagger20Definition(apiProduct.getId(), updatedProductSwagger);
+        apiProduct.setDefinition(updatedProductSwagger);
+
+        updateLocalEntry(apiProduct);
+    }
+
     public APIStateChangeResponse changeLifeCycleStatus(APIIdentifier apiIdentifier, String action)
             throws APIManagementException, FaultGatewaysException {
         APIStateChangeResponse response = new APIStateChangeResponse();
@@ -5078,6 +5558,8 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
 
                 String providerName = apiArtifact.getAttribute(APIConstants.API_OVERVIEW_PROVIDER);
                 String apiName = apiArtifact.getAttribute(APIConstants.API_OVERVIEW_NAME);
+                String apiContext = apiArtifact.getAttribute(APIConstants.API_OVERVIEW_CONTEXT);
+                String apiType = apiArtifact.getAttribute(APIConstants.API_OVERVIEW_TYPE);
                 String apiVersion = apiArtifact.getAttribute(APIConstants.API_OVERVIEW_VERSION);
                 String currentStatus = apiArtifact.getLifecycleState();
 
@@ -5101,6 +5583,8 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                         apiStateWorkflow.setApiCurrentState(currentStatus);
                         apiStateWorkflow.setApiLCAction(action);
                         apiStateWorkflow.setApiName(apiName);
+                        apiStateWorkflow.setApiContext(apiContext);
+                        apiStateWorkflow.setApiType(apiType);
                         apiStateWorkflow.setApiVersion(apiVersion);
                         apiStateWorkflow.setApiProvider(providerName);
                         apiStateWorkflow.setCallbackUrl(workflowProperties.getWorkflowCallbackAPI());
@@ -5148,6 +5632,62 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                                 + ", API Version " + apiIdentifier.getVersion() + ", New Status : " + targetStatus;
                         log.debug(logMessage);
                     }
+                    APIEvent apiEvent = new APIEvent(UUID.randomUUID().toString(), System.currentTimeMillis(),
+                            APIConstants.EventType.API_LIFECYCLE_CHANGE.name(), tenantId, tenantDomain, apiName, apiId,
+                            apiVersion, apiType, apiContext, providerName, targetStatus);
+                    APIUtil.sendNotification(apiEvent, APIConstants.NotifierType.API.name());
+
+                    /**
+                     * Kubernetes Implementations
+                     */
+                   String getDeployments = apiArtifact.getAttribute(APIConstants.API_OVERVIEW_DEPLOYMENTS);
+                    JSONArray containerMgt = APIUtil.getAllClustersFromConfig();
+                    Set<DeploymentEnvironments> deploymentEnvironments =  APIUtil.extractDeploymentsForAPI(getDeployments);
+                    if (deploymentEnvironments != null && !deploymentEnvironments.isEmpty()) {
+                        for (DeploymentEnvironments deploymentEnvironment : deploymentEnvironments) {
+                            if (deploymentEnvironment.getType().equalsIgnoreCase(ContainerBasedConstants.DEPLOYMENT_ENV)) {
+                                //Get the configurations for selected clusters
+                                if (!containerMgt.isEmpty()) {
+                                    for (Object containerMgtObj : containerMgt) {
+                                        JSONObject containerMgtDetails = (JSONObject) containerMgtObj;
+                                        if (containerMgtDetails.get(ContainerBasedConstants.TYPE).toString()
+                                                .equalsIgnoreCase(ContainerBasedConstants.DEPLOYMENT_ENV)) {
+                                            for (String clusterId : deploymentEnvironment.getClusterNames()) {
+                                                JSONArray containerMgtInfo = (JSONArray) containerMgtDetails
+                                                        .get(ContainerBasedConstants.CONTAINER_MANAGEMENT_INFO);
+                                                for (Object containerMgtInfoObj : containerMgtInfo) {
+                                                    JSONObject containerMgtInfoDetails = (JSONObject) containerMgtInfoObj;
+                                                    if (clusterId.equalsIgnoreCase(containerMgtInfoDetails
+                                                            .get(ContainerBasedConstants.CLUSTER_NAME).toString())) {
+                                                        ContainerManager containerManager =
+                                                                getContainerManagerInstance(containerMgtDetails
+                                                                        .get(ContainerBasedConstants.CLASS_NAME).toString());
+                                                        if (action.equals(ContainerBasedConstants.BLOCK)) {
+                                                            containerManager.changeLCStateToBlocked(apiIdentifier,
+                                                                    containerMgtInfoDetails);
+                                                        } else if (action.equals(ContainerBasedConstants.DEMOTE_TO_CREATED)) {
+                                                            containerManager.changeLCStatePublishedToCreated(
+                                                                    apiIdentifier, containerMgtInfoDetails);
+                                                        } else if (action.equals(ContainerBasedConstants.REPUBLISH)) {
+                                                            String configmapName = apiIdentifier.getApiName().toLowerCase() +
+                                                                    apiIdentifier.getVersion();
+                                                            String[] configmapNames = new String[]{configmapName};
+                                                            containerManager.changeLCStateBlockedToRepublished(apiIdentifier,
+                                                                    containerMgtInfoDetails, configmapNames);
+                                                        } else if (currentStatus.equals(ContainerBasedConstants.PUBLISHED)
+                                                                && action.equals(ContainerBasedConstants.PUBLISH)) {
+                                                            containerManager.apiRepublish(getAPI(apiIdentifier),
+                                                                    apiIdentifier, registry, containerMgtInfoDetails);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     return response;
                 }
             }
@@ -5179,6 +5719,10 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 }
             }
             return response;
+        } catch (ParseException e) {
+            handleException("Couldn't parse tenant configuration for reading extension handler position", e);
+        } catch (RegistryException e) {
+            handleException("Couldn't read tenant configuration from tenant registry", e);
         } finally {
             PrivilegedCarbonContext.endTenantFlow();
         }
@@ -5566,6 +6110,11 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 String defaultPolicyName = policyFile + "_default";
                 executionFlows.put(defaultPolicyName, defaultPolicy);
                 policyLevel = PolicyConstants.POLICY_LEVEL_API;
+                APIPolicyEvent apiPolicyEvent = new APIPolicyEvent(UUID.randomUUID().toString(),
+                        System.currentTimeMillis(), APIConstants.EventType.POLICY_CREATE.name(), tenantId,
+                        apiPolicy.getTenantDomain(), apiPolicy.getPolicyId(), apiPolicy.getPolicyName(),
+                        apiPolicy.getDefaultQuotaPolicy().getType());
+                APIUtil.sendNotification(apiPolicyEvent, APIConstants.NotifierType.POLICY.name());
             } else if (policy instanceof ApplicationPolicy) {
                 ApplicationPolicy appPolicy = (ApplicationPolicy) policy;
                 //Check if there's a policy exists before adding the new policy
@@ -5578,6 +6127,13 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 executionFlows.put(policyFile, policyString);
                 apiMgtDAO.addApplicationPolicy(appPolicy);
                 policyLevel = PolicyConstants.POLICY_LEVEL_APP;
+                //policy id is not set. retrieving policy to get the id. 
+                ApplicationPolicy retrievedPolicy = apiMgtDAO.getApplicationPolicy(appPolicy.getPolicyName(), tenantId);
+                ApplicationPolicyEvent applicationPolicyEvent = new ApplicationPolicyEvent(UUID.randomUUID().toString(),
+                        System.currentTimeMillis(), APIConstants.EventType.POLICY_CREATE.name(), tenantId,
+                        appPolicy.getTenantDomain(), retrievedPolicy.getPolicyId(), appPolicy.getPolicyName(),
+                        appPolicy.getDefaultQuotaPolicy().getType());
+                APIUtil.sendNotification(applicationPolicyEvent, APIConstants.NotifierType.POLICY.name());
             } else if (policy instanceof SubscriptionPolicy) {
                 SubscriptionPolicy subPolicy = (SubscriptionPolicy) policy;
                 //Check if there's a policy exists before adding the new policy
@@ -5595,6 +6151,14 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                     createMonetizationPlan(subPolicy);
                 }
                 policyLevel = PolicyConstants.POLICY_LEVEL_SUB;
+                //policy id is not set. retrieving policy to get the id. 
+                SubscriptionPolicy retrievedPolicy = apiMgtDAO.getSubscriptionPolicy(subPolicy.getPolicyName(), tenantId);
+                SubscriptionPolicyEvent subscriptionPolicyEvent = new SubscriptionPolicyEvent(UUID.randomUUID().toString(),
+                        System.currentTimeMillis(), APIConstants.EventType.POLICY_CREATE.name(), tenantId, subPolicy.getTenantDomain(), retrievedPolicy.getPolicyId(),
+                        subPolicy.getPolicyName(), subPolicy.getDefaultQuotaPolicy().getType(),
+                        subPolicy.getRateLimitCount(),subPolicy.getRateLimitTimeUnit(), subPolicy.isStopOnQuotaReach(),
+                        subPolicy.getGraphQLMaxDepth(),subPolicy.getGraphQLMaxComplexity());
+                APIUtil.sendNotification(subscriptionPolicyEvent, APIConstants.NotifierType.POLICY.name());
             } else if (policy instanceof GlobalPolicy) {
                 GlobalPolicy globalPolicy = (GlobalPolicy) policy;
                 String policyString = policyBuilder.getThrottlePolicyForGlobalLevel(globalPolicy);
@@ -5607,7 +6171,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 // checking if policy already exist
                 Policy existingPolicy = getGlobalPolicy(globalPolicy.getPolicyName());
                 if (existingPolicy != null) {
-                    throw new APIManagementException("Policy Name Already Exist");
+                    throw new APIManagementException("Policy name already exists");
                 }
 
                 String policyFile = PolicyConstants.POLICY_LEVEL_GLOBAL + "_" + globalPolicy.getPolicyName();
@@ -5880,6 +6444,11 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                     String policyContext = APIConstants.POLICY_CACHE_CONTEXT + "/t/" + apiPolicy.getTenantDomain()
                             + "/";
                     invalidateResourceCache(policyContext, null, Collections.EMPTY_SET);
+                APIPolicyEvent apiPolicyEvent = new APIPolicyEvent(UUID.randomUUID().toString(),
+                        System.currentTimeMillis(), APIConstants.EventType.POLICY_UPDATE.name(), tenantId,
+                        apiPolicy.getTenantDomain(), apiPolicy.getPolicyId(), apiPolicy.getPolicyName(),
+                        apiPolicy.getDefaultQuotaPolicy().getType());
+                APIUtil.sendNotification(apiPolicyEvent, APIConstants.NotifierType.POLICY.name());
             } else if (policy instanceof ApplicationPolicy) {
                 ApplicationPolicy appPolicy = (ApplicationPolicy) policy;
                 String policyString = policyBuilder.getThrottlePolicyForAppLevel(appPolicy);
@@ -5888,6 +6457,13 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 executionFlows.put(policyFile, policyString);
                 policiesToUndeploy.add(policyFile);
                 policyLevel = PolicyConstants.POLICY_LEVEL_APP;
+                //policy id is not set. retrieving policy to get the id. 
+                ApplicationPolicy retrievedPolicy = apiMgtDAO.getApplicationPolicy(appPolicy.getPolicyName(), tenantId);
+                ApplicationPolicyEvent applicationPolicyEvent = new ApplicationPolicyEvent(UUID.randomUUID().toString(),
+                        System.currentTimeMillis(), APIConstants.EventType.POLICY_UPDATE.name(), tenantId,
+                        appPolicy.getTenantDomain(), retrievedPolicy.getPolicyId(), appPolicy.getPolicyName(),
+                        appPolicy.getDefaultQuotaPolicy().getType());
+                APIUtil.sendNotification(applicationPolicyEvent, APIConstants.NotifierType.POLICY.name());
             } else if (policy instanceof SubscriptionPolicy) {
                 SubscriptionPolicy subPolicy = (SubscriptionPolicy) policy;
                 String policyString = policyBuilder.getThrottlePolicyForSubscriptionLevel(subPolicy);
@@ -5902,6 +6478,14 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 policiesToUndeploy.add(policyFile);
                 executionFlows.put(policyFile, policyString);
                 policyLevel = PolicyConstants.POLICY_LEVEL_SUB;
+                //policy id is not set. retrieving policy to get the id. 
+                SubscriptionPolicy retrievedPolicy = apiMgtDAO.getSubscriptionPolicy(subPolicy.getPolicyName(), tenantId);
+                SubscriptionPolicyEvent subscriptionPolicyEvent = new SubscriptionPolicyEvent(UUID.randomUUID().toString(),
+                        System.currentTimeMillis(), APIConstants.EventType.POLICY_UPDATE.name(), tenantId,subPolicy.getTenantDomain(), retrievedPolicy.getPolicyId(),
+                        subPolicy.getPolicyName(), subPolicy.getDefaultQuotaPolicy().getType(),
+                        subPolicy.getRateLimitCount(),subPolicy.getRateLimitTimeUnit(), subPolicy.isStopOnQuotaReach(),subPolicy.getGraphQLMaxDepth(),
+                        subPolicy.getGraphQLMaxComplexity());
+                APIUtil.sendNotification(subscriptionPolicyEvent, APIConstants.NotifierType.POLICY.name());
             } else if (policy instanceof GlobalPolicy) {
                 GlobalPolicy globalPolicy = (GlobalPolicy) policy;
                 String policyString = policyBuilder.getThrottlePolicyForGlobalLevel(globalPolicy);
@@ -5997,6 +6581,10 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                     policyFileNames.add(policyFile + "_condition_" + pipeline.getId());
                 }
             }
+            APIPolicyEvent apiPolicyEvent = new APIPolicyEvent(UUID.randomUUID().toString(), System.currentTimeMillis(),
+                    APIConstants.EventType.POLICY_DELETE.name(), tenantId, policy.getTenantDomain(),
+                    policy.getPolicyId(), policy.getPolicyName(), policy.getDefaultQuotaPolicy().getType());
+            APIUtil.sendNotification(apiPolicyEvent, APIConstants.NotifierType.POLICY.name());
 
         } else if (PolicyConstants.POLICY_LEVEL_APP.equals(policyLevel)) {
             ApplicationPolicy appPolicy = apiMgtDAO.getApplicationPolicy(policyName, tenantID);
@@ -6004,6 +6592,11 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
                 policyFile = appPolicy.getTenantDomain() + "_" + PolicyConstants.POLICY_LEVEL_APP + "_" + policyName;
                 policyFileNames.add(policyFile);
             }
+            ApplicationPolicyEvent applicationPolicyEvent = new ApplicationPolicyEvent(UUID.randomUUID().toString(),
+                    System.currentTimeMillis(), APIConstants.EventType.POLICY_DELETE.name(), tenantId,
+                    appPolicy.getTenantDomain(), appPolicy.getPolicyId(), appPolicy.getPolicyName(),
+                    appPolicy.getDefaultQuotaPolicy().getType());
+            APIUtil.sendNotification(applicationPolicyEvent, APIConstants.NotifierType.POLICY.name());
         } else if (PolicyConstants.POLICY_LEVEL_SUB.equals(policyLevel)) {
             SubscriptionPolicy subscriptionPolicy = apiMgtDAO.getSubscriptionPolicy(policyName, tenantID);
             if (subscriptionPolicy.isDeployed()) {
@@ -6013,6 +6606,14 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             }
             //call the monetization extension point to delete plans if any
             deleteMonetizationPlan(subscriptionPolicy);
+            SubscriptionPolicyEvent subscriptionPolicyEvent = new SubscriptionPolicyEvent(UUID.randomUUID().toString(),
+                    System.currentTimeMillis(), APIConstants.EventType.POLICY_DELETE.name(), tenantId,
+                    subscriptionPolicy.getTenantDomain(), subscriptionPolicy.getPolicyId(),
+                    subscriptionPolicy.getPolicyName(), subscriptionPolicy.getDefaultQuotaPolicy().getType(),
+                    subscriptionPolicy.getRateLimitCount(), subscriptionPolicy.getRateLimitTimeUnit(),
+                    subscriptionPolicy.isStopOnQuotaReach(), subscriptionPolicy.getGraphQLMaxDepth(),
+                    subscriptionPolicy.getGraphQLMaxComplexity());
+            APIUtil.sendNotification(subscriptionPolicyEvent, APIConstants.NotifierType.POLICY.name());
         } else if (PolicyConstants.POLICY_LEVEL_GLOBAL.equals(policyLevel)) {
             GlobalPolicy globalPolicy = apiMgtDAO.getGlobalPolicy(policyName);
             if (globalPolicy.isDeployed()) {
@@ -6118,6 +6719,35 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         blockConditionsDTO.setConditionValue(conditionValue);
         blockConditionsDTO.setTenantDomain(tenantDomain);
         blockConditionsDTO.setEnabled(true);
+        blockConditionsDTO.setUUID(UUID.randomUUID().toString());
+        BlockConditionsDTO createdBlockConditionsDto = apiMgtDAO.addBlockConditions(blockConditionsDTO);
+
+        if (createdBlockConditionsDto != null) {
+            publishBlockingEvent(createdBlockConditionsDto, "true");
+        }
+
+        return createdBlockConditionsDto.getUUID();
+    }
+
+    /**
+     * Add Block Condition with condition status
+     *
+     * @param conditionType type of the condition (IP, Context .. )
+     * @param conditionValue value of the condition
+     * @param conditionStatus status of the condition
+     */
+    public String addBlockCondition(String conditionType, String conditionValue, boolean conditionStatus)
+            throws APIManagementException {
+
+        if (APIConstants.BLOCKING_CONDITIONS_USER.equals(conditionType)) {
+            conditionValue = MultitenantUtils.getTenantAwareUsername(conditionValue);
+            conditionValue = conditionValue + "@" + tenantDomain;
+        }
+        BlockConditionsDTO blockConditionsDTO = new BlockConditionsDTO();
+        blockConditionsDTO.setConditionType(conditionType);
+        blockConditionsDTO.setConditionValue(conditionValue);
+        blockConditionsDTO.setTenantDomain(tenantDomain);
+        blockConditionsDTO.setEnabled(conditionStatus);
         blockConditionsDTO.setUUID(UUID.randomUUID().toString());
         BlockConditionsDTO createdBlockConditionsDto = apiMgtDAO.addBlockConditions(blockConditionsDTO);
 
@@ -6256,7 +6886,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         ThrottleProperties throttleProperties = getAPIManagerConfiguration().getThrottleProperties();
 
         if (throttleProperties.getDataPublisher() != null && throttleProperties.getDataPublisher().isEnabled()) {
-            APIUtil.publishEvent(APIConstants.BLOCKING_EVENT_PUBLISHER, Collections.EMPTY_MAP, blockingMessage);
+            APIUtil.publishEventToTrafficManager(Collections.EMPTY_MAP, blockingMessage);
         }
     }
 
@@ -6269,7 +6899,7 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
 
 
         if (throttleProperties.getDataPublisher() != null && throttleProperties.getDataPublisher().isEnabled()) {
-            APIUtil.publishEvent(APIConstants.BLOCKING_EVENT_PUBLISHER, Collections.EMPTY_MAP, keyTemplateMessage);
+            APIUtil.publishEventToTrafficManager(Collections.EMPTY_MAP, keyTemplateMessage);
         }
     }
 
@@ -6422,6 +7052,14 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
     @Override
     public List<ClientCertificateDTO> searchClientCertificates(int tenantId, String alias, APIIdentifier apiIdentifier)
             throws APIManagementException {
+        return certificateManager.searchClientCertificates(tenantId, alias, apiIdentifier);
+    }
+
+    @Override
+    public List<ClientCertificateDTO> searchClientCertificates(int tenantId, String alias, APIProductIdentifier apiProductIdentifier)
+            throws APIManagementException {
+        APIIdentifier apiIdentifier = new APIIdentifier(apiProductIdentifier.getProviderName(),
+                apiProductIdentifier.getName(), apiProductIdentifier.getVersion());
         return certificateManager.searchClientCertificates(tenantId, alias, apiIdentifier);
     }
 
@@ -7093,19 +7731,21 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
 
         List<APIProductResource> resources = product.getProductResources();
 
-        // list to hold resouces which are actually in an existing api. If user has created an API product with invalid
+        // list to hold resources which are actually in an existing api. If user has created an API product with invalid
         // API or invalid resource of a valid API, that content will be removed .validResources array will have only
         // legitimate apis
         List<APIProductResource> validResources = new ArrayList<APIProductResource>();
         for (APIProductResource apiProductResource : resources) {
-            API api = null;
-            try {
+            API api;
+            if (apiProductResource.getProductIdentifier() != null) {
+                APIIdentifier productAPIIdentifier = apiProductResource.getApiIdentifier();
+                String emailReplacedAPIProviderName = APIUtil.replaceEmailDomain(productAPIIdentifier.getProviderName());
+                APIIdentifier emailReplacedAPIIdentifier = new APIIdentifier(emailReplacedAPIProviderName,
+                        productAPIIdentifier.getApiName(), productAPIIdentifier.getVersion());
+                api = super.getAPI(emailReplacedAPIIdentifier);
+            } else {
                 api = super.getAPIbyUUID(apiProductResource.getApiId(), tenantDomain);
                 // if API does not exist, getLightweightAPIByUUID() method throws exception.
-            } catch (APIMgtResourceNotFoundException e) {
-                //If there is no API , this exception is thrown. We create the product without this invalid api.
-                log.warn("API does not exist for the given apiId: " + apiProductResource.getApiId());
-                continue;
             }
             if (api != null) {
                 validateApiLifeCycleForApiProducts(api);
@@ -7520,6 +8160,13 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             // Make the LC status of the API Product published by default
             saveAPIStatus(artifactPath, APIConstants.PUBLISHED);
 
+            Set<String> tagSet = apiProduct.getTags();
+            if (tagSet != null) {
+                for (String tag : tagSet) {
+                    registry.applyTag(artifactPath, tag);
+                }
+            }
+
             String visibleRolesList = apiProduct.getVisibleRoles();
             String[] visibleRoles = new String[0];
             if (visibleRolesList != null) {
@@ -7907,6 +8554,168 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
     }
 
     /**
+     * Check whether the given scope name exists as a shared scope in the tenant domain.
+     *
+     * @param scopeName    Shared Scope name
+     * @param tenantDomain Tenant Domain
+     * @return Scope availability
+     * @throws APIManagementException if failed to check the availability
+     */
+    @Override
+    public boolean isSharedScopeNameExists(String scopeName, String tenantDomain) throws APIManagementException {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Checking whether scope name: " + scopeName + " exists as a shared scope in tenant: "
+                    + tenantDomain);
+        }
+        int tenantId = APIUtil.getTenantIdFromTenantDomain(tenantDomain);
+        return ApiMgtDAO.getInstance().isSharedScopeExists(scopeName, tenantId);
+    }
+
+    /**
+     * Add Shared Scope by registering it in the KM and adding the scope as a Shared Scope in AM DB.
+     *
+     * @param scope        Shared Scope
+     * @param tenantDomain Tenant domain
+     * @return UUId of the added Shared Scope object
+     * @throws APIManagementException if failed to add a scope
+     */
+    @Override
+    public String addSharedScope(Scope scope, String tenantDomain) throws APIManagementException {
+
+        KeyManagerHolder.getKeyManagerInstance(tenantDomain).registerScope(scope);
+        if (log.isDebugEnabled()) {
+            log.debug("Adding shared scope mapping: " + scope.getKey());
+        }
+        return ApiMgtDAO.getInstance().addSharedScope(scope, tenantDomain);
+    }
+
+    /**
+     * Get all available shared scopes.
+     *
+     * @param tenantDomain tenant domain
+     * @return Shared Scope list
+     * @throws APIManagementException if failed to get the scope list
+     */
+    @Override
+    public List<Scope> getAllSharedScopes(String tenantDomain) throws APIManagementException {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Retrieving all the shared scopes for tenant: " + tenantDomain);
+        }
+        //Get all shared scopes
+        List<Scope> allSharedScopes = ApiMgtDAO.getInstance().getAllSharedScopes(tenantDomain);
+        //Get all scopes from KM
+        Map<String, Scope> allScopes = KeyManagerHolder.getKeyManagerInstance(tenantDomain).getAllScopes();
+        //Set name, roles and description to shared scopes
+        for (Scope scope : allSharedScopes) {
+            if (!allScopes.containsKey(scope.getKey())) {
+                log.error("No matching scope found in authorization server for shared scope name: " + scope.getKey());
+            } else {
+                Scope kmScope = allScopes.get(scope.getKey());
+                scope.setName(kmScope.getName());
+                scope.setRoles(kmScope.getRoles());
+                scope.setDescription(kmScope.getDescription());
+            }
+        }
+        return allSharedScopes;
+    }
+
+    /**
+     * Get all available shared scope keys.
+     *
+     * @param tenantDomain tenant domain
+     * @return Shared Scope Keyset
+     * @throws APIManagementException if failed to get the scope key set
+     */
+    @Override
+    public Set<String> getAllSharedScopeKeys(String tenantDomain) throws APIManagementException {
+
+        //Get all shared scope keys
+        return ApiMgtDAO.getInstance().getAllSharedScopeKeys(tenantDomain);
+    }
+
+    /**
+     * Get shared scope by UUID.
+     *
+     * @param sharedScopeId Shared scope Id
+     * @param tenantDomain  tenant domain
+     * @return Shared Scope
+     * @throws APIManagementException If failed to get the scope
+     */
+    @Override
+    public Scope getSharedScopeByUUID(String sharedScopeId, String tenantDomain) throws APIManagementException {
+
+        Scope sharedScope;
+        if (log.isDebugEnabled()) {
+            log.debug("Retrieving shared scope: " + sharedScopeId);
+        }
+        String scopeKey = ApiMgtDAO.getInstance().getSharedScopeKeyByUUID(sharedScopeId);
+        if (scopeKey != null) {
+            sharedScope = KeyManagerHolder.getKeyManagerInstance(tenantDomain).getScopeByName(scopeKey);
+            sharedScope.setId(sharedScopeId);
+        } else {
+            throw new APIMgtResourceNotFoundException("Shared Scope not found for scope ID: " + sharedScopeId,
+                    ExceptionCodes.from(ExceptionCodes.SHARED_SCOPE_NOT_FOUND, sharedScopeId));
+        }
+        return sharedScope;
+    }
+
+    /**
+     * Delete shared scope.
+     *
+     * @param scopeName    Shared scope name
+     * @param tenantDomain tenant domain
+     * @throws APIManagementException If failed to delete the scope
+     */
+    @Override
+    public void deleteSharedScope(String scopeName, String tenantDomain) throws APIManagementException {
+
+        if (log.isDebugEnabled()) {
+            log.debug("Deleting shared scope " + scopeName);
+        }
+        KeyManagerHolder.getKeyManagerInstance(tenantDomain).deleteScope(scopeName);
+        ApiMgtDAO.getInstance().deleteSharedScope(scopeName, tenantDomain);
+    }
+
+    /**
+     * Update a shared scope.
+     *
+     * @param sharedScope  Shared Scope
+     * @param tenantDomain tenant domain
+     * @throws APIManagementException If failed to update
+     */
+    @Override
+    public void updateSharedScope(Scope sharedScope, String tenantDomain) throws APIManagementException {
+
+        KeyManagerHolder.getKeyManagerInstance(tenantDomain).updateScope(sharedScope);
+    }
+
+    /**
+     * Validate a shared scopes set. Add the additional attributes (scope description, bindings etc).
+     *
+     * @param scopes Shared scopes set
+     * @throws APIManagementException If failed to validate
+     */
+    @Override
+    public void validateSharedScopes(Set<Scope> scopes, String tenantDomain) throws APIManagementException {
+
+        KeyManagerHolder.getKeyManagerInstance(tenantDomain).validateScopes(scopes);
+    }
+
+    @Override
+    /**
+     * Get the API and URI usages of the given shared scope
+     *
+     * @param uuid       UUID of the shared scope
+     * @param tenantId ID of the Tenant domain
+     * @throws APIManagementException If failed to validate
+     */
+    public SharedScopeUsage getSharedScopeUsage(String uuid, int tenantId) throws APIManagementException {
+        return ApiMgtDAO.getInstance().getSharedScopeUsage(uuid, tenantId);
+    }
+
+    /**
      * This method returns the security audit properties
      *
      * @param userId user id
@@ -7945,6 +8754,77 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
         return null;
     }
 
+    @Override
+    public void publishInPrivateJet(API api, APIIdentifier apiIdentifier) throws APIManagementException {
+
+        //get selected deployment Environments
+        Set<DeploymentEnvironments> deploymentEnvironments = api.getDeploymentEnvironments();
+        try {
+            //Get cluster configurations from tenant-conf.json/deployment.toml
+            JSONArray containerMgt = APIUtil.getAllClustersFromConfig();
+            if (deploymentEnvironments.size() != 0) {
+                for (DeploymentEnvironments deploymentEnvironment : deploymentEnvironments) {
+                    if (deploymentEnvironment.getType().equalsIgnoreCase(ContainerBasedConstants.DEPLOYMENT_ENV)) {
+                        if (!containerMgt.isEmpty()) {
+                            for (Object containerMgtObj : containerMgt) {
+                                JSONObject containerMgtDetails = (JSONObject) containerMgtObj;
+                                if (containerMgtDetails.get(ContainerBasedConstants.TYPE).toString()
+                                        .equalsIgnoreCase(ContainerBasedConstants.DEPLOYMENT_ENV)) {
+                                    log.info("Publishing the [API] " + apiIdentifier.getApiName() + " in Kubernetes");
+                                    for (String clusterName : deploymentEnvironment.getClusterNames()) {
+                                        JSONArray containerMgtInfo = (JSONArray) containerMgtDetails
+                                                .get(ContainerBasedConstants.CONTAINER_MANAGEMENT_INFO);
+                                        for (Object containerMgtInfoObj : containerMgtInfo) {
+                                            JSONObject containerMgtInfoDetails = (JSONObject) containerMgtInfoObj;
+                                            if (clusterName.equalsIgnoreCase(containerMgtInfoDetails
+                                                    .get(ContainerBasedConstants.CLUSTER_NAME).toString())) {
+                                                ContainerManager containerManager = getContainerManagerInstance(containerMgtDetails
+                                                        .get(ContainerBasedConstants.CLASS_NAME).toString());
+                                                containerManager.initManager(containerMgtInfoDetails);
+                                                containerManager.changeLCStateCreatedToPublished(api, apiIdentifier, registry);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (RegistryException e) {
+            handleException("Couldn't read tenant configuration from tenant registry", e);
+        } catch (UserStoreException e) {
+            handleException("Couldn't read tenant configuration from tenant registry", e);
+        } catch (ParseException e) {
+            handleException("Couldn't parse tenant configuration for reading extension handler position", e);
+        }
+    }
+
+    @Override
+    public List<DeploymentStatus> getDeploymentStatus(APIIdentifier apiId) throws APIManagementException {
+        API existingAPI = getAPI(apiId);
+        Set<DeploymentEnvironments> deploymentEnvironments = existingAPI.getDeploymentEnvironments();
+        List<DeploymentStatus> deploymentStatusList = new ArrayList<DeploymentStatus>();
+        return deploymentStatusList;
+    }
+
+    /**
+     * This method returns an instance of ContainerManager
+     *
+     * @param className name of the specific class Ex: for kubernetes: k8sManager
+     * @return ContainerManager Obj
+     */
+    private ContainerManager getContainerManagerInstance(String className)
+            throws APIManagementException {
+        try {
+            Class<ContainerManager> CloudManager = (Class<ContainerManager>) Class.forName(className);
+            return CloudManager.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            handleException("Error occurred while getting an instance of ContainerManager class ", e);
+        }
+        return null;
+    }
+
     /**
      * This method returns security audit properties from the API Manager Configuration
      *
@@ -7971,5 +8851,63 @@ class APIProviderImpl extends AbstractAPIManager implements APIProvider {
             }
         }
         return null;
+    }
+
+    @Override
+    public List<APIResource> getResourcesToBeRemovedFromAPIProducts(APIIdentifier apiId, String swaggerContent)
+            throws APIManagementException {
+        API existingAPI = getAPI(apiId);
+        APIDefinitionValidationResponse response = OASParserUtil
+                .validateAPIDefinition(swaggerContent, true);
+        APIDefinition oasParser = response.getParser();
+        String apiDefinition = response.getJsonContent();
+        Set<URITemplate> uriTemplates = null;
+        try {
+            uriTemplates = oasParser.getURITemplates(apiDefinition);
+        } catch (APIManagementException e) {
+            // catch APIManagementException inside again to capture validation error
+            log.error("Swagger validation error");
+        }
+        if(uriTemplates == null || uriTemplates.isEmpty()) {
+            log.error("No resources found");
+        }
+
+        List<APIResource> removedProductResources = getRemovedProductResources(uriTemplates, existingAPI);
+        return removedProductResources;
+    }
+
+    @Override
+    public List<APIResource> getRemovedProductResources(Set<URITemplate> updatedUriTemplates, API existingAPI) {
+        Set<URITemplate> existingUriTemplates = existingAPI.getUriTemplates();
+        List<APIResource> removedReusedResources = new ArrayList<>();
+
+        for (URITemplate existingUriTemplate : existingUriTemplates) {
+
+            // If existing URITemplate is used by any API Products
+            if (!existingUriTemplate.retrieveUsedByProducts().isEmpty()) {
+                String existingVerb = existingUriTemplate.getHTTPVerb();
+                String existingPath = existingUriTemplate.getUriTemplate();
+                boolean isReusedResourceRemoved = true;
+
+                for (URITemplate updatedUriTemplate : updatedUriTemplates) {
+                    String updatedVerb = updatedUriTemplate.getHTTPVerb();
+                    String updatedPath = updatedUriTemplate.getUriTemplate();
+
+                    //Check if existing reused resource is among updated resources
+                    if (existingVerb.equalsIgnoreCase(updatedVerb) &&
+                            existingPath.equalsIgnoreCase(updatedPath)) {
+                        isReusedResourceRemoved = false;
+                        break;
+                    }
+                }
+
+                // Existing reused resource is not among updated resources
+                if (isReusedResourceRemoved) {
+                    APIResource removedResource = new APIResource(existingVerb, existingPath);
+                    removedReusedResources.add(removedResource);
+                }
+            }
+        }
+        return removedReusedResources;
     }
 }

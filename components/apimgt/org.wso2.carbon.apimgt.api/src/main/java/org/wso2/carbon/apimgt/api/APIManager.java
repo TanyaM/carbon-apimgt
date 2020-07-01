@@ -35,6 +35,7 @@ import org.wso2.carbon.apimgt.api.model.SubscribedAPI;
 import org.wso2.carbon.apimgt.api.model.Subscriber;
 import org.wso2.carbon.apimgt.api.model.Tier;
 import org.wso2.carbon.apimgt.api.model.Wsdl;
+import org.wso2.carbon.apimgt.api.model.graphql.queryanalysis.GraphqlComplexityInfo;
 import org.wso2.carbon.apimgt.api.model.policy.Policy;
 import org.wso2.carbon.registry.api.Resource;
 
@@ -127,6 +128,15 @@ public interface APIManager {
      * @throws APIManagementException if failed to get API availability
      */
     boolean isAPIAvailable(APIIdentifier identifier) throws APIManagementException;
+
+    /**
+     * Checks the Availability of given APIProductIdentifier
+     *
+     * @param identifier APIProductIdentifier
+     * @return true, if already exists. False, otherwise
+     * @throws APIManagementException if failed to get API Product availability
+     */
+    boolean isAPIProductAvailable(APIProductIdentifier identifier) throws APIManagementException;
 
     /**
      * Checks whether the given API context is already registered in the system
@@ -237,6 +247,27 @@ public interface APIManager {
     String getDocumentationContent(Identifier identifier, String documentationName) throws APIManagementException;
 
     /**
+     * Returns the GraphqlComplexityInfo object for a given API ID
+     *
+     * @param apiId API ID
+     * @return GraphqlComplexityInfo object
+     * @throws APIManagementException if failed to retrieve complexity details of the given API
+     */
+    GraphqlComplexityInfo getComplexityDetails(APIIdentifier apiId) throws APIManagementException;
+
+
+    /**
+     * Add or Updates the complexity details given the GraphqlComplexityInfo object
+     *
+     * @param apiIdentifier         APIIdentifier
+     * @param graphqlComplexityInfo GraphqlComplexityInfo object
+     * @throws APIManagementException if failed to update complexity details
+     */
+    void addOrUpdateComplexityDetails(APIIdentifier apiIdentifier, GraphqlComplexityInfo graphqlComplexityInfo)
+            throws APIManagementException;
+
+
+    /**
      * Retrieves the subscriber from the given access token
      *
      * @param accessToken Subscriber key
@@ -335,46 +366,6 @@ public interface APIManager {
      */
     Application getLightweightApplicationByUUID(String uuid) throws APIManagementException;
 
-    /**
-     * Check whether an application access token is already persist in database.
-     *
-     * @param accessToken
-     * @return
-     * @throws APIManagementException
-     */
-    boolean isApplicationTokenExists(String accessToken) throws APIManagementException;
-
-    /**
-     * Check whether an application access token is already revoked.
-     *
-     * @param accessToken
-     * @return
-     * @throws APIManagementException
-     */
-    boolean isApplicationTokenRevoked(String accessToken) throws APIManagementException;
-
-    /**
-     * Return information related to a specific access token
-     *
-     * @param accessToken AccessToken
-     * @return
-     * @throws APIManagementException
-     */
-    APIKey getAccessTokenData(String accessToken) throws APIManagementException;
-
-    /**
-    /**
-     * Return information related to access token by a searchTerm and searchType       *
-     *
-     *
-     * @param searchType
-     * @param searchTerm
-     * @param loggedInUser
-     * @return
-     * @throws APIManagementException
-     */
-    Map<Integer, APIKey> searchAccessToken(String searchType, String searchTerm, String loggedInUser)
-            throws APIManagementException;
 
     /**
      * Return subscribed APIs per access token
@@ -446,15 +437,27 @@ public interface APIManager {
     boolean isScopeKeyExist(String scopeKey, int tenantid) throws APIManagementException;
 
     /**
-     * Check whether the given scope key is already assigned to an API under given tenant
+     * Check whether the given scope key is already assigned to any API under given tenant.
      *
-     * @param identifier API Identifier
-     * @param scopeKey   candidate scope key
-     * @param tenantid   tenant id
-     * @return true if the scope key is already available
-     * @throws APIManagementException if failed to check the context availability
+     * @param scopeKey     Scope
+     * @param tenantDomain Tenant Domain
+     * @return true if scope is attached to an API
+     * @throws APIManagementException if failed to check the assignment
      */
-    boolean isScopeKeyAssigned(APIIdentifier identifier, String scopeKey, int tenantid) throws APIManagementException;
+    boolean isScopeKeyAssignedToAPI(String scopeKey, String tenantDomain) throws APIManagementException;
+
+    /**
+     * Check whether the given scope key is already assigned to an API as local scope under given tenant.
+     * This will return false if those APIs are different versions of the same API.
+     *
+     * @param apiIdentifier API Identifier
+     * @param scopeKey   candidate scope key
+     * @param tenantId   tenant Id
+     * @return true if the scope key is already attached as a local scope in any API
+     * @throws APIManagementException if failed to check the local scope availability
+     */
+    boolean isScopeKeyAssignedLocally(APIIdentifier apiIdentifier, String scopeKey, int tenantId)
+            throws APIManagementException;
 
     /**
      * Check if a given context template already exists

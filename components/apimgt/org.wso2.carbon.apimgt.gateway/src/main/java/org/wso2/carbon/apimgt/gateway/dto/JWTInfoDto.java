@@ -20,6 +20,7 @@ package org.wso2.carbon.apimgt.gateway.dto;
 import com.nimbusds.jwt.JWTClaimsSet;
 import org.apache.synapse.MessageContext;
 import org.json.JSONObject;
+import org.wso2.carbon.apimgt.impl.dto.JWTValidationInfo;
 
 public class JWTInfoDto {
 
@@ -34,7 +35,8 @@ public class JWTInfoDto {
     private String subscriptionTier;
     private String applicationid;
     private String apicontext;
-    private JWTClaimsSet jwtToken;
+    private String apiName;
+    private JWTValidationInfo jwtValidationInfo;
     private MessageContext messageContext;
 
     public String getApplicationtier() {
@@ -147,14 +149,14 @@ public class JWTInfoDto {
         this.apicontext = apicontext;
     }
 
-    public JWTClaimsSet getJwtToken() {
+    public JWTValidationInfo getJwtValidationInfo() {
 
-        return jwtToken;
+        return jwtValidationInfo;
     }
 
-    public void setJwtToken(JWTClaimsSet jwtToken) {
+    public void setJwtValidationInfo(JWTValidationInfo jwtValidationInfo) {
 
-        this.jwtToken = jwtToken;
+        this.jwtValidationInfo = jwtValidationInfo;
     }
 
     public MessageContext getMessageContext() {
@@ -165,5 +167,15 @@ public class JWTInfoDto {
     public void setMessageContext(MessageContext messageContext) {
 
         this.messageContext = messageContext;
+    }
+
+    public String getApiName() {
+
+        return apiName;
+    }
+
+    public void setApiName(String apiName) {
+
+        this.apiName = apiName;
     }
 }

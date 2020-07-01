@@ -16,7 +16,10 @@
 
 package org.wso2.carbon.apimgt.impl.internal;
 
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.osgi.framework.BundleContext;
@@ -27,8 +30,9 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import org.wso2.carbon.apimgt.impl.APIManagerConfiguration;
 import org.wso2.carbon.apimgt.impl.APIManagerConfigurationService;
 import org.wso2.carbon.apimgt.impl.dao.ApiMgtDAO;
+import org.wso2.carbon.apimgt.impl.dto.EventHubConfigurationDto;
+import org.wso2.carbon.apimgt.impl.dto.GatewayArtifactSynchronizerProperties;
 import org.wso2.carbon.apimgt.impl.dto.ThrottleProperties;
-import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
 import org.wso2.carbon.apimgt.impl.factory.SQLConstantManagerFactory;
 import org.wso2.carbon.apimgt.impl.internal.util.APIManagerComponentWrapper;
 import org.wso2.carbon.apimgt.impl.observers.CommonConfigDeployer;
@@ -46,8 +50,8 @@ import java.io.FileNotFoundException;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ APIUtil.class, APIManagerComponent.class, ServiceReferenceHolder.class, AuthorizationUtils.class,
-                        RegistryUtils.class, APIMgtDBUtil.class, KeyManagerHolder.class,
-                        SQLConstantManagerFactory.class, ApiMgtDAO.class })
+        RegistryUtils.class, APIMgtDBUtil.class,
+        SQLConstantManagerFactory.class, ApiMgtDAO.class })
 public class APIManagerComponentTest {
 
     @Before
@@ -60,7 +64,6 @@ public class APIManagerComponentTest {
         PowerMockito.mockStatic(APIMgtDBUtil.class);
         PowerMockito.mockStatic(APIUtil.class);
         PowerMockito.mockStatic(AuthorizationUtils.class);
-        PowerMockito.mockStatic(KeyManagerHolder.class);
         PowerMockito.mockStatic(RegistryUtils.class);
         PowerMockito.mockStatic(ServiceReferenceHolder.class);
         PowerMockito.mockStatic(SQLConstantManagerFactory.class);
@@ -97,7 +100,6 @@ public class APIManagerComponentTest {
         PowerMockito.doNothing().when(APIUtil.class, "loadTenantExternalStoreConfig", Mockito.anyInt());
         PowerMockito.doNothing().when(AuthorizationUtils.class ,"addAuthorizeRoleListener",
                 Mockito.anyInt(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
-        PowerMockito.doNothing().when(KeyManagerHolder.class, "initializeKeyManager", configuration);
         PowerMockito.doNothing().when(SQLConstantManagerFactory.class, "initializeSQLConstantManager");
         PowerMockito.when(APIUtil.getMountedPath(null, "")).thenReturn("");
         PowerMockito.when(ServiceReferenceHolder.getInstance()).thenReturn(serviceReferenceHolder);
@@ -108,7 +110,21 @@ public class APIManagerComponentTest {
         ApiMgtDAO apiMgtDAO = Mockito.mock(ApiMgtDAO.class);
         PowerMockito.when(ApiMgtDAO.getInstance()).thenReturn(apiMgtDAO);
 
+        APIManagerConfiguration config = ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService()
+                .getAPIManagerConfiguration();
         APIManagerComponent apiManagerComponent = new APIManagerComponentWrapper(registry);
+        GatewayArtifactSynchronizerProperties synchronizerProperties = new GatewayArtifactSynchronizerProperties();
+        Mockito.when(config.getGatewayArtifactSynchronizerProperties()).thenReturn(synchronizerProperties);
+        EventHubConfigurationDto eventHubConfigurationDto = new EventHubConfigurationDto();
+        eventHubConfigurationDto.setEnabled(true);
+        eventHubConfigurationDto.setInitDelay(0);
+        eventHubConfigurationDto.setUsername("a");
+        eventHubConfigurationDto.setPassword("sss".toCharArray());
+        eventHubConfigurationDto.setServiceUrl("https://localhost");
+        EventHubConfigurationDto.EventHubPublisherConfiguration eventHubPublisherConfiguration =
+                new EventHubConfigurationDto.EventHubPublisherConfiguration();
+        eventHubConfigurationDto.setEventHubPublisherConfiguration(eventHubPublisherConfiguration);
+        Mockito.when(config.getEventHubConfigurationDto()).thenReturn(eventHubConfigurationDto);
         try {
             apiManagerComponent.activate(componentContext);
         } catch (FileNotFoundException f) {

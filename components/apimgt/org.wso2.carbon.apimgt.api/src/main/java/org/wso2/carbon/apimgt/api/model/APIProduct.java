@@ -102,6 +102,12 @@ public class APIProduct {
 
     private Date lastUpdated;
     private Date createdTime;
+    private String testKey;
+
+    /**
+     * Property to hold enable/disable status of the store visibility.
+     */
+    private boolean enableStore = true;
 
     public APIProduct(){}
 
@@ -443,6 +449,22 @@ public class APIProduct {
         return contextTemplate;
     }
 
+    public boolean isEnableStore() {
+        return enableStore;
+    }
+
+    public void setEnableStore(boolean enableStore) {
+        this.enableStore = enableStore;
+    }
+
+    public String getTestKey() {
+        return testKey;
+    }
+
+    public void setTestKey(String testKey) {
+        this.testKey = testKey;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -520,6 +542,10 @@ public class APIProduct {
      */
     public void removeAllTiers() {
         availableTiers.clear();
+    }
+
+    public void removeAvailableTiers(Set<Tier> availableTiers) {
+        this.availableTiers.removeAll(availableTiers);
     }
 
     public void setApiCategories(List<APICategory> apiCategories) {

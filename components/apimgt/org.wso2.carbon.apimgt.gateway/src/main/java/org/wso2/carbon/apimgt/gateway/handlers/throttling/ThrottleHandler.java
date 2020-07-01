@@ -34,6 +34,7 @@ import org.apache.synapse.Mediator;
 import org.apache.synapse.MessageContext;
 import org.apache.synapse.SynapseConstants;
 import org.apache.synapse.commons.throttle.core.AccessInformation;
+import org.apache.synapse.commons.throttle.core.CallerConfiguration;
 import org.apache.synapse.commons.throttle.core.RoleBasedAccessRateController;
 import org.apache.synapse.commons.throttle.core.Throttle;
 import org.apache.synapse.commons.throttle.core.ThrottleConfiguration;
@@ -179,6 +180,7 @@ public class ThrottleHandler extends AbstractHandler implements ManagedLifecycle
         boolean policyLevelUserTriggered = false;
         String ipLevelBlockingKey;
         String appLevelBlockingKey = "";
+        String subscriptionLevelBlockingKey = "";
         boolean stopOnQuotaReach = true;
         String apiContext = (String) synCtx.getProperty(RESTConstants.REST_API_CONTEXT);
         String apiVersion = (String) synCtx.getProperty(RESTConstants.SYNAPSE_REST_API_VERSION);
@@ -198,11 +200,14 @@ public class ThrottleHandler extends AbstractHandler implements ManagedLifecycle
             //Do blocking if there are blocking conditions present
             if (getThrottleDataHolder().isBlockingConditionsPresent()) {
                 appLevelBlockingKey = authContext.getSubscriber() + ":" + authContext.getApplicationName();
+                subscriptionLevelBlockingKey = apiContext + ":" + apiVersion + ":" + authContext.getSubscriber()
+                        + "-" + authContext.getApplicationName() + ":" + authContext.getKeyType();
                 Timer timer = getTimer(MetricManager.name(
                         APIConstants.METRICS_PREFIX, this.getClass().getSimpleName(), BLOCKED_TEST));
                 Timer.Context context = timer.start();
                 isBlockedRequest = getThrottleDataHolder()
-                        .isRequestBlocked(apiContext, appLevelBlockingKey, authorizedUser, clientIp, apiTenantDomain);
+                        .isRequestBlocked(apiContext, appLevelBlockingKey, authorizedUser, clientIp, apiTenantDomain,
+                                subscriptionLevelBlockingKey);
                 context.stop();
             }
 
@@ -836,7 +841,20 @@ public class ThrottleHandler extends AbstractHandler implements ManagedLifecycle
                                     PolicyEngine.getPolicy(spikeArrestSubscriptionLevelPolicy));
                         }
                     } else {
+                        boolean createSpikeArrestSubscriptionLevelPolicy = false;
                         if (throttle.getThrottleContext(subscriptionLevelThrottleKey) == null) {
+                            createSpikeArrestSubscriptionLevelPolicy = true;
+                        } else {
+                            CallerConfiguration existingCallerConfig =
+                                    throttle.getThrottleContext(subscriptionLevelThrottleKey).getThrottleConfiguration()
+                                    .getCallerConfiguration(subscriptionLevelThrottleKey);
+                            if (existingCallerConfig.getMaximumRequestPerUnitTime() != maxRequestCount ||
+                                    existingCallerConfig.getUnitTime() != spikeArrestWindowUnitTime) {
+                                createSpikeArrestSubscriptionLevelPolicy = true;
+                            }
+                        }
+
+                        if (createSpikeArrestSubscriptionLevelPolicy) {
                             OMElement spikeArrestSubscriptionLevelPolicy = createSpikeArrestSubscriptionLevelPolicy(
                                     subscriptionLevelThrottleKey, maxRequestCount, spikeArrestWindowUnitTime);
                             if (spikeArrestSubscriptionLevelPolicy != null) {
@@ -846,7 +864,8 @@ public class ThrottleHandler extends AbstractHandler implements ManagedLifecycle
                                         getThrottleConfiguration(ThrottleConstants.ROLE_BASED_THROTTLE_KEY);
                                 ThrottleContext subscriptionLevelSpikeThrottle = ThrottleContextFactory.
                                         createThrottleContext(ThrottleConstants.ROLE_BASE, newThrottleConfig);
-                                throttle.addThrottleContext(subscriptionLevelThrottleKey, subscriptionLevelSpikeThrottle);
+                                throttle.addThrottleContext(subscriptionLevelThrottleKey,
+                                        subscriptionLevelSpikeThrottle);
                             }
                         }
                     }

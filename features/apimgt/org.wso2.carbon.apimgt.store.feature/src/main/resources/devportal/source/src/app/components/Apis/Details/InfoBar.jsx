@@ -35,13 +35,13 @@ import API from 'AppData/api';
 import StarRatingBar from 'AppComponents/Apis/Listing/StarRatingBar';
 import StarRatingSummary from 'AppComponents/Apis/Details/StarRatingSummary';
 import { ApiContext } from 'AppComponents/Apis/Details/ApiContext';
+import Social from 'AppComponents/Apis/Details/Social/Social';
 import VerticalDivider from '../../Shared/VerticalDivider';
 import ApiThumb from '../Listing/ApiThumb';
 import ResourceNotFound from '../../Base/Errors/ResourceNotFound';
 import AuthManager from '../../../data/AuthManager';
 import Environments from './Environments';
 import Labels from './Labels';
-
 /**
  *
  *
@@ -250,6 +250,58 @@ class InfoBar extends React.Component {
         return provider;
     }
 
+    getProviderMail(api) {
+        let mail;
+        if (
+            api.businessInformation
+            && api.businessInformation.businessOwnerEmail
+            && api.businessInformation.businessOwnerEmail.trim() !== ''
+        ) {
+            mail = '(' + api.businessInformation.businessOwnerEmail + ')';
+        }
+        return mail;
+    }
+
+    getTechnical(api) {
+        let owner;
+        if (
+            api.businessInformation
+            && api.businessInformation.technicalOwner
+            && api.businessInformation.technicalOwner.trim() !== ''
+        ) {
+            owner = api.businessInformation.technicalOwner;
+        }
+        return owner;
+    }
+
+    getTechnicalMail(api) {
+        let mail;
+        if (
+            api.businessInformation
+            && api.businessInformation.technicalOwnerEmail
+            && api.businessInformation.technicalOwnerEmail.trim() !== ''
+        ) {
+            mail = '(' + api.businessInformation.technicalOwnerEmail + ')';
+        }
+        return mail;
+    }
+
+    getKeyManagers(api) {
+        let keyManagers;
+        let response;
+        if (api.keyManagers) {
+            keyManagers = api.keyManagers;
+            keyManagers.map(name => {
+                if (name === 'all'){
+                    response = 'All Applicable';
+                } else {
+                    response = keyManagers;
+                }
+            });
+        }
+        return response;
+    }
+
     getSchema() {
         const newAPI = new API();
         const { api } = this.context;
@@ -296,7 +348,10 @@ class InfoBar extends React.Component {
         } = theme;
 
         // Remve the tags with a sufix '-group' from tags
-        const apisTagsWithoutGroups = [];
+        let apisTagsWithoutGroups = [];
+        if ( !active ){
+            apisTagsWithoutGroups = api.tags;
+        }
         if (active && api.tags && api.tags.length > 0) {
             for (let i = 0; i < api.tags.length; i++) {
                 if (api.tags[i].search(key) != -1 && api.tags[i].split(key).length > 0) {
@@ -348,6 +403,7 @@ class InfoBar extends React.Component {
                             <VerticalDivider height={70} />
                         </>
                     )}
+                    <Social />
                 </div>
                 {position === 'horizontal' && <div style={{ height: 60 }} />}
                 {showOverview && (
@@ -374,7 +430,7 @@ class InfoBar extends React.Component {
                                         <TableRow>
                                             <TableCell component='th' scope='row'>
                                                 <div className={classes.iconAligner}>
-                                                    <Icon className={classes.iconEven}>account_balance_wallet</Icon>
+                                                    <Icon className={classes.iconOdd}>account_balance_wallet</Icon>
                                                     <span className={classes.iconTextWrapper}>
                                                         <FormattedMessage
                                                             id='Apis.Details.InfoBar.list.context'
@@ -397,7 +453,35 @@ class InfoBar extends React.Component {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>{this.getProvider(api)}</TableCell>
+                                            <TableCell>{this.getProvider(api)} {this.getProviderMail(api)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell component='th' scope='row'>
+                                                <div className={classes.iconAligner}>
+                                                    <Icon className={classes.iconOdd}>account_box</Icon>
+                                                    <span className={classes.iconTextWrapper}>
+                                                        <FormattedMessage
+                                                            id='Apis.Details.InfoBar.technical'
+                                                            defaultMessage='Technical Owner'
+                                                        />
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>{this.getTechnical(api)} {this.getTechnicalMail(api)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell component='th' scope='row'>
+                                                <div className={classes.iconAligner}>
+                                                    <Icon className={classes.iconOdd}>vpn_key</Icon>
+                                                    <span className={classes.iconTextWrapper}>
+                                                        <FormattedMessage
+                                                            id='Apis.Details.InfoBar.keyManagers'
+                                                            defaultMessage='Key Managers'
+                                                        />
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>{this.getKeyManagers(api)}</TableCell>
                                         </TableRow>
                                         {/* <TableRow>
                                                     <TableCell component='th' scope='row'>
@@ -417,7 +501,7 @@ class InfoBar extends React.Component {
                                             <TableRow>
                                                 <TableCell component='th' scope='row'>
                                                     <div className={classes.iconAligner}>
-                                                        <Grade className={classes.iconEven} />
+                                                        <Grade className={classes.iconOdd} />
                                                         <span className={classes.iconTextWrapper}>
                                                             <FormattedMessage
                                                                 id='Apis.Details.InfoBar.list.context.rating'
@@ -473,7 +557,7 @@ class InfoBar extends React.Component {
                                                         className={classes.contentToTop}
                                                     >
                                                         <div className={classes.iconAligner}>
-                                                            <Icon className={classes.iconEven}>desktop_windows</Icon>
+                                                            <Icon className={classes.iconOdd}>desktop_windows</Icon>
                                                             <span className={classes.iconTextWrapper}>
                                                                 <FormattedMessage
                                                                     id='Apis.Details.InfoBar.gateway.environments'
@@ -494,7 +578,7 @@ class InfoBar extends React.Component {
                                                             className={classes.contentToTop}
                                                         >
                                                             <div className={classes.iconAligner}>
-                                                                <Icon className={classes.iconEven}>games</Icon>
+                                                                <Icon className={classes.iconOdd}>games</Icon>
                                                                 <span className={classes.iconTextWrapper}>
                                                                     <FormattedMessage
                                                                         id='Apis.Details.InfoBar.available.mgLabels'
@@ -529,7 +613,7 @@ class InfoBar extends React.Component {
                                             <TableRow>
                                                 <TableCell component='th' scope='row'>
                                                     <div className={classes.iconAligner}>
-                                                        <Icon className={classes.iconEven}>bookmark</Icon>
+                                                        <Icon className={classes.iconOdd}>bookmark</Icon>
                                                         <span className={classes.iconTextWrapper}>
                                                             <FormattedMessage
                                                                 id='Apis.Details.InfoBar.list.tags'

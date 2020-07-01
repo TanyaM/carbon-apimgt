@@ -480,9 +480,15 @@ export default class API extends Resource {
         }
     }
 
-    generateApiKey(applicationId, keyType, validityPeriod) {
+    generateApiKey(applicationId, keyType, validityPeriod, restrictions) {
         const promiseGet = this.client.then((client) => {
-            const payload = { applicationId, keyType, body: { validityPeriod } };
+            const payload = {
+                applicationId, keyType,
+                body: {
+                    validityPeriod: validityPeriod,
+                    additionalProperties: restrictions
+                }
+            };
             return client.apis['API Keys'].post_applications__applicationId__api_keys__keyType__generate(
                 payload,
                 this._requestMetaData(),
@@ -633,7 +639,7 @@ export default class API extends Resource {
             return client.apis.APIs.get_apis__apiId__thumbnail({
                 apiId: id,
             },
-            this._requestMetaData());
+                this._requestMetaData());
         });
 
         return promised_getAPIThumbnail;
@@ -674,6 +680,16 @@ export default class API extends Resource {
         });
     }
 
+    /**
+     * @static
+     * Get the registered key managers.
+     * @return {Promise}
+     * */
+    getKeyManagers() {
+        return this.client.then((client) => {
+            return client.apis['Key Managers (Collection)'].get_key_managers(this._requestMetaData());
+        });
+    }
 
     /**
      * @static
@@ -798,5 +814,50 @@ export default class API extends Resource {
             return client.apis.Recommendations.get_recommendations(params, this._requestMetaData());
         });
         return promiseGet;
+    }
+    /**
+     * Get the complexity related details of an API
+     */
+
+    getGraphqlPoliciesComplexity(id) {
+        const promisePolicies = this.client.then(client => {
+            return client.apis['GraphQL Policies'].get_apis__apiId__graphql_policies_complexity(
+                {
+                    apiId: id,
+                },
+                this._requestMetaData(),
+            );
+        });
+        return promisePolicies.then(response => response.body);
+    }
+
+    /**
+     * Retrieve all types and fields of a GraphQL Schema
+     */
+    getGraphqlPoliciesComplexityTypes(id) {
+        const promisePolicies = this.client.then(client => {
+            return client.apis['GraphQL Policies'].get_apis__apiId__graphql_policies_complexity_types(
+                {
+                    apiId: id,
+                },
+                this._requestMetaData(),
+            );
+        });
+        return promisePolicies.then(response => response.body);
+    }
+
+    /**
+     * Change password
+     */
+    changePassword(currentPwd, newPwd, callback = null) {
+        const promiseChangePassword = this.client.then((client) => {
+            const payload = { currentPassword: currentPwd, newPassword: newPwd };
+            return client.apis.Users.changeUserPassword({ body: payload }, this._requestMetaData());
+        });
+        if (callback) {
+            return promiseChangePassword.then(callback);
+        } else {
+            return promiseChangePassword;
+        }
     }
 }

@@ -193,8 +193,6 @@ public class APIMgtGatewayConstants {
     public static final String TRUST_STORE_LOCATION = "Security.TrustStore.Location";
     public static final String HTTP_RESPONSE_STATUS_CODE = "HTTP_RESPONSE_STATUS_CODE";
     public static final String BASE64_ENCODED_CLIENT_CERTIFICATE_HEADER = "X-WSO2-CLIENT-CERTIFICATE";
-    public static final String BEGIN_CERTIFICATE_STRING = "-----BEGIN CERTIFICATE-----\n";
-    public static final String END_CERTIFICATE_STRING = "-----END CERTIFICATE-----";
     public static final String DEFAULT_JWT_TRANSFORMER_ISSUER = "default";
     public static final String SPAN_ACTIVITY_ID = "span.activity.id";
     public static final String SPAN_RESOURCE = "span.resource";
@@ -204,5 +202,7 @@ public class APIMgtGatewayConstants {
     public static final String SPAN_APPLICATION_ID = "span.application.id";
     public static final String SPAN_APPLICATION_CONSUMER_KEY = "span.consumerkey";
     public static final String SPAN_ENDPOINT = "span.endpoint";
+
+    public static final String TEST_KEY = "testkey";
 }
 

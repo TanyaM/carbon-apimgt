@@ -62,6 +62,9 @@ const styles = (theme) => ({
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
+        '& span, & h5, & label, & td, & li, & div, & input': {
+            color: theme.palette.getContrastText(theme.palette.background.paper),
+        },
     },
     copyWrapper: {
         display: 'flex',
@@ -81,6 +84,11 @@ const styles = (theme) => ({
     margin: {
         marginRight: theme.spacing(2),
     },
+    dialogWrapper: {
+        '& label,& h5, & label, & td, & li, & input, & h2, & p.MuiTypography-root,& p.MuiFormHelperText-root': {
+            color: theme.palette.getContrastText(theme.palette.background.paper),
+        },
+    }
 });
 
 /**
@@ -211,9 +219,9 @@ class ViewKeys extends React.Component {
     /**
      * Handle onCLick of regenerate consumer secret
      * */
-    handleSecretRegenerate = (consumerKey, keyType) => {
+    handleSecretRegenerate = (consumerKey, keyType, keyMappingId, selectedTab) => {
         this.applicationPromise
-            .then((application) => application.regenerateSecret(consumerKey, keyType))
+            .then((application) => application.regenerateSecret(consumerKey, keyType, keyMappingId, selectedTab))
             .then((response) => {
                 console.log('consumer secret regenerated successfully ' + response);
                 this.setState({
@@ -254,9 +262,11 @@ class ViewKeys extends React.Component {
      * */
     generateAccessToken = () => {
         const { accessTokenRequest, isUpdating } = this.state;
+        const { selectedTab } = this.props;
         this.setState({ isUpdating: true });
         this.applicationPromise
             .then((application) => application.generateToken(
+                selectedTab,
                 accessTokenRequest.keyType,
                 accessTokenRequest.timeout,
                 accessTokenRequest.scopesSelected,
@@ -284,7 +294,7 @@ class ViewKeys extends React.Component {
             });
     };
 
-    viewKeyAndSecret = (consumerKey, consumerSecret) => {
+    viewKeyAndSecret = (consumerKey, consumerSecret, keyMappingId, selectedTab, isUserOwner) => {
         const { classes, intl, selectedApp: { hashEnabled }, keyType } = this.props;
         const { keyCopied, secretCopied, showCS } = this.state;
         return (
@@ -395,7 +405,7 @@ class ViewKeys extends React.Component {
                                     variant='contained'
                                     color='primary'
                                     className={classes.button}
-                                    onClick={() => this.handleSecretRegenerate(consumerKey, keyType)}
+                                    onClick={() => this.handleSecretRegenerate(consumerKey, keyType, keyMappingId, selectedTab)}
                                     disabled={!isUserOwner}
                                 >
                                     <FormattedMessage
@@ -430,7 +440,8 @@ class ViewKeys extends React.Component {
             isKeyJWT, tokenResponse, secretGenResponse, isUpdating,
         } = this.state;
         const {
-            intl, keyType, classes, fullScreen, keys, selectedApp: { tokenType, hashEnabled }, selectedGrantTypes, isUserOwner, summary,
+            intl, keyType, classes, fullScreen, keys, selectedApp: { tokenType }, selectedGrantTypes, isUserOwner, summary,
+            selectedTab, hashEnabled
         } = this.props;
 
         if (notFound) {
@@ -440,9 +451,11 @@ class ViewKeys extends React.Component {
             return <Loading />;
         }
 
-        const csCkKeys = keys.get(keyType);
+        const csCkKeys = keys.size > 0 && keys.get(selectedTab) && (keys.get(selectedTab).keyType === keyType) && keys.get(selectedTab);
         const consumerKey = csCkKeys && csCkKeys.consumerKey;
         const consumerSecret = csCkKeys && csCkKeys.consumerSecret;
+        const keyMappingId = csCkKeys && csCkKeys.keyMappingId;
+
         let accessToken;
         let accessTokenScopes;
         let validityPeriod;
@@ -452,11 +465,11 @@ class ViewKeys extends React.Component {
             accessToken = token;
             accessTokenScopes = tokenScopes;
             validityPeriod = tokenValidityTime;
-        } else if (keys.get(keyType) && keys.get(keyType).token) {
-            ({ accessToken } = keys.get(keyType).token);
-            accessTokenScopes = keys.get(keyType).token.tokenScopes;
-            validityPeriod = keys.get(keyType).token.validityTime;
-            tokenDetails = keys.get(keyType).token;
+        } else if (keys.get(selectedTab) && keys.get(selectedTab).keyType === keyType && keys.get(selectedTab).token) {
+            ({ accessToken } = keys.get(selectedTab).token);
+            accessTokenScopes = keys.get(selectedTab).token.tokenScopes;
+            validityPeriod = keys.get(selectedTab).token.validityTime;
+            tokenDetails = keys.get(selectedTab).token;
         }
 
         let dialogHead = 'Undefined';
@@ -481,14 +494,14 @@ class ViewKeys extends React.Component {
         if (summary) {
             return (
                 <Grid container spacing={3} className={classes.gridWrapper}>
-                    {this.viewKeyAndSecret(consumerKey, consumerSecret)}
+                    {this.viewKeyAndSecret(consumerKey, consumerSecret, keyMappingId, selectedTab, isUserOwner)}
                 </Grid>
             );
         }
         return consumerKey && (
             <div className={classes.inputWrapper}>
                 <Grid container spacing={3} className={classes.gridWrapper}>
-                    {this.viewKeyAndSecret(consumerKey, consumerSecret)}
+                    {this.viewKeyAndSecret(consumerKey, consumerSecret, keyMappingId, selectedTab, isUserOwner)}
                     {(accessToken && tokenType !== 'JWT' && !hashEnabled) && (
                         <Grid item xs={6}>
                             <InputLabel htmlFor='adornment-amount'>
@@ -538,6 +551,7 @@ class ViewKeys extends React.Component {
                             open={(open || isKeyJWT) && selectedGrantTypes.includes('client_credentials')}
                             onClose={this.handleClose}
                             aria-labelledby='responsive-dialog-title'
+                            className={classes.dialogWrapper}
                         >
                             <DialogTitle id='responsive-dialog-title'>
                                 {dialogHead}

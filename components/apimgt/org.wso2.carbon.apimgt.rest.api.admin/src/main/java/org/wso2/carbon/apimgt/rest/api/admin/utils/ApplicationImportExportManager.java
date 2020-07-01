@@ -36,7 +36,6 @@ import org.wso2.carbon.apimgt.api.model.Subscriber;
 import org.wso2.carbon.apimgt.api.model.Tier;
 import org.wso2.carbon.apimgt.impl.APIConstants;
 import org.wso2.carbon.apimgt.impl.utils.APIUtil;
-import org.wso2.carbon.apimgt.rest.api.util.utils.RestApiUtil;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
@@ -129,15 +128,16 @@ public class ApplicationImportExportManager {
             if (!StringUtils.isEmpty(tenantDomain) && APIUtil.isTenantAvailable(tenantDomain)) {
                 String name = apiIdentifier.getApiName();
                 String version = apiIdentifier.getVersion();
-                //creating a solr compatible search query
+                //creating a solr compatible search query, here we will execute a search query without wildcards
                 StringBuilder searchQuery = new StringBuilder();
                 String[] searchCriteria = {name, "version:" + version};
                 for (int i = 0; i < searchCriteria.length; i++) {
                     if (i == 0) {
-                        searchQuery = new StringBuilder(APIUtil.getSingleSearchCriteria(searchCriteria[i]));
+                        searchQuery = new StringBuilder(
+                                APIUtil.getSingleSearchCriteria(searchCriteria[i]).replace("*", ""));
                     } else {
                         searchQuery.append(APIConstants.SEARCH_AND_TAG)
-                                .append(APIUtil.getSingleSearchCriteria(searchCriteria[i]));
+                                .append(APIUtil.getSingleSearchCriteria(searchCriteria[i]).replace("*", ""));
                     }
                 }
                 Map matchedAPIs;
@@ -226,10 +226,11 @@ public class ApplicationImportExportManager {
         }
         String jsonParams = jsonParamObj.toString();
         String tokenScopes = apiKey.getTokenScope();
+        String keyManager = apiKey.getKeyManager();
         apiConsumer.requestApprovalForApplicationRegistration(
                 username, application.getName(), apiKey.getType(), apiKey.getCallbackUrl(),
                 accessAllowDomainsArray, Long.toString(apiKey.getValidityPeriod()), tokenScopes, application.getGroupId(),
-                jsonParams);
+                jsonParams, keyManager);
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ * Copyright (c) 2020 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
  *
  * WSO2 Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -25,11 +25,13 @@ import org.wso2.carbon.apimgt.impl.workflow.WorkflowException;
 import org.wso2.carbon.apimgt.impl.workflow.WorkflowExecutor;
 import org.wso2.carbon.apimgt.impl.workflow.WorkflowExecutorFactory;
 import org.wso2.carbon.apimgt.impl.workflow.WorkflowStatus;
+import org.wso2.carbon.apimgt.impl.workflow.WorkflowUtils;
 import org.wso2.carbon.apimgt.rest.api.admin.WorkflowsApiService;
 import org.wso2.carbon.apimgt.rest.api.admin.dto.WorkflowDTO;
 import org.wso2.carbon.apimgt.rest.api.util.RestApiConstants;
 import org.wso2.carbon.apimgt.rest.api.util.utils.RestApiUtil;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
+import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
 import javax.ws.rs.core.Response;
 
@@ -54,7 +56,8 @@ public class WorkflowsApiServiceImpl extends WorkflowsApiService {
     public Response workflowsUpdateWorkflowStatusPost(String workflowReferenceId, WorkflowDTO body) {
         ApiMgtDAO apiMgtDAO = ApiMgtDAO.getInstance();
         boolean isTenantFlowStarted = false;
-
+        String username = RestApiUtil.getLoggedInUsername();
+        String tenantDomainOfUser = MultitenantUtils.getTenantDomain(username);
         try {
             if (workflowReferenceId == null) {
                 RestApiUtil.handleBadRequest("workflowReferenceId is empty", log);
@@ -67,6 +70,9 @@ public class WorkflowsApiServiceImpl extends WorkflowsApiService {
             }
 
             String tenantDomain = workflowDTO.getTenantDomain();
+            if (tenantDomain != null && !tenantDomain.equals(tenantDomainOfUser)) {
+                return Response.status(Response.Status.UNAUTHORIZED).build();
+            }
             if (tenantDomain != null && !SUPER_TENANT_DOMAIN_NAME.equals(tenantDomain)) {
                 isTenantFlowStarted = true;
                 PrivilegedCarbonContext.startTenantFlow();
@@ -93,6 +99,9 @@ public class WorkflowsApiServiceImpl extends WorkflowsApiService {
             String workflowType = workflowDTO.getWorkflowType();
             WorkflowExecutor workflowExecutor = WorkflowExecutorFactory.getInstance().getWorkflowExecutor(workflowType);
             workflowExecutor.complete(workflowDTO);
+            if (WorkflowStatus.APPROVED.equals(workflowDTO.getStatus())) {
+                WorkflowUtils.sendNotificationAfterWFComplete(workflowDTO, workflowType);
+            }
             return Response.ok().entity(body).build();
 
         } catch (APIManagementException e) {

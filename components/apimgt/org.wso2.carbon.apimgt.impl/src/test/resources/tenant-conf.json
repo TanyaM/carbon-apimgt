@@ -2,6 +2,27 @@
   "EnableMonetization" : false,
   "EnableRecommendation" : false,
   "IsUnlimitedTierPaid" : false,
+  "ContainerMgt": [
+    {
+      "Type": "Kubernetes",
+      "ContainerMgtInfo": [
+        {
+          "ClusterName": "",
+          "DisplayName": "",
+          "Properties": {
+            "MasterURL": "",
+            "AccessURL": "",
+            "SAToken": "",
+            "Namespace": "default",
+            "Replicas": 1,
+            "BasicSecurityCustomResourceName": "",
+            "OauthSecurityCustomResourceName": "",
+            "JWTSecurityCustomResourceName": ""
+          }
+        }
+      ]
+    }
+  ],
   "ExtensionHandlerPosition": "bottom",
   "RESTAPIScopes": {
     "Scope": [
@@ -58,7 +79,15 @@
         "Roles": "admin,Internal/creator"
       },
       {
-        "Name": "apim:api_workflow",
+        "Name": "apim:api_workflow_approve",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim:api_workflow_view",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim:admin",
         "Roles": "admin"
       },
       {
@@ -67,11 +96,15 @@
       },
       {
         "Name": "apim:app_import_export",
-        "Roles": "admin"
+        "Roles": "admin,Internal/devops"
       },
       {
         "Name": "apim:api_import_export",
-        "Roles": "admin"
+        "Roles": "admin,Internal/devops"
+      },
+      {
+        "Name": "apim:api_product_import_export",
+        "Roles": "admin,Internal/devops"
       },
       {
         "Name": "apim:label_manage",
@@ -87,11 +120,11 @@
       },
       {
         "Name": "apim:app_manage",
-        "Roles": "admin,Internal/subscriber"
+        "Roles": "admin,Internal/subscriber,Internal/devops"
       },
       {
         "Name": "apim:sub_manage",
-        "Roles": "admin,Internal/subscriber"
+        "Roles": "admin,Internal/subscriber,Internal/devops"
       },
       {
         "Name" : "apim:monetization_usage_publish",
@@ -130,6 +163,10 @@
         "Roles": "admin,Internal/subscriber"
       },
       {
+        "Name": "apim:admin_settings",
+        "Roles": "admin"
+      },
+      {
         "Name": "apim:client_certificates_view",
         "Roles": "admin,Internal/creator"
       },
@@ -158,28 +195,52 @@
         "Roles": "admin"
       },
       {
-        "Name": "apim_analytics:product_manager",
-        "Roles": "Internal/creator,Internal/publisher,Internal/subscriber"
+        "Name": "apim_analytics:monitoring_dashboard:own",
+        "Roles": "admin"
       },
       {
-        "Name": "apim_analytics:api_developer",
-        "Roles": "Internal/creator,Internal/publisher"
+        "Name": "apim_analytics:monitoring_dashboard:edit",
+        "Roles": "admin"
       },
       {
-        "Name": "apim_analytics:app_developer",
-        "Roles": "Internal/subscriber"
-      },
-      {
-        "Name": "apim_analytics:devops_engineer",
-        "Roles": "Internal/creator,Internal/publisher,Internal/subscriber"
-      },
-      {
-        "Name": "apim_analytics:analytics_viewer",
+        "Name": "apim_analytics:monitoring_dashboard:view",
         "Roles": "admin,Internal/analytics"
       },
       {
-        "Name": "apim_analytics:everyone",
-        "Roles": "Internal/everyone"
+        "Name": "apim_analytics:manager_dashboard:own",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim_analytics:manager_dashboard:edit",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim_analytics:manager_dashboard:view",
+        "Roles": "admin,Internal/analytics"
+      },
+      {
+        "Name": "apim_analytics:publisher_dashboard:own",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim_analytics:publisher_dashboard:edit",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim_analytics:publisher_dashboard:view",
+        "Roles": "admin,Internal/creator,Internal/publisher"
+      },
+      {
+        "Name": "apim_analytics:subscriber_dashboard:own",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim_analytics:subscriber_dashboard:edit",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim_analytics:subscriber_dashboard:view",
+        "Roles": "admin,Internal/subscriber"
       },
       {
         "Name": "apim:pub_alert_manage",
@@ -191,6 +252,26 @@
       },
       {
         "Name": "apim:tenantInfo",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim:tenant_theme_manage",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim:shared_scope_manage",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim:admin_alert_manage",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim:bot_data",
+        "Roles": "admin"
+      },
+      {
+        "Name": "apim:scope_manage",
         "Roles": "admin"
       }
     ]
@@ -222,6 +303,10 @@
     },
     "SubscriberRole" : {
       "CreateOnTenantLoad" : true
+    },
+    "DevOpsRole" : {
+      "CreateOnTenantLoad" : true,
+      "RoleName" : "Internal/devops"
     }
   }
 }

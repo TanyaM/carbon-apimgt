@@ -35,6 +35,7 @@ import org.wso2.carbon.CarbonConstants;
 import org.wso2.carbon.apimgt.api.APIManagementException;
 import org.wso2.carbon.apimgt.api.APIManagerDatabaseException;
 import org.wso2.carbon.apimgt.api.APIMgtInternalException;
+import org.wso2.carbon.apimgt.api.model.KeyManagerConnectorConfiguration;
 import org.wso2.carbon.apimgt.impl.APIConstants;
 import org.wso2.carbon.apimgt.impl.APIManagerAnalyticsConfiguration;
 import org.wso2.carbon.apimgt.impl.APIManagerConfiguration;
@@ -45,12 +46,31 @@ import org.wso2.carbon.apimgt.impl.PasswordResolverFactory;
 import org.wso2.carbon.apimgt.impl.caching.CacheProvider;
 import org.wso2.carbon.apimgt.impl.certificatemgt.reloader.CertificateReLoaderUtil;
 import org.wso2.carbon.apimgt.impl.dao.ApiMgtDAO;
+import org.wso2.carbon.apimgt.impl.dto.EventHubConfigurationDto;
+import org.wso2.carbon.apimgt.impl.dto.GatewayArtifactSynchronizerProperties;
 import org.wso2.carbon.apimgt.impl.dto.ThrottleProperties;
-import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
 import org.wso2.carbon.apimgt.impl.factory.SQLConstantManagerFactory;
+import org.wso2.carbon.apimgt.impl.gatewayartifactsynchronizer.ArtifactRetriever;
+import org.wso2.carbon.apimgt.impl.gatewayartifactsynchronizer.ArtifactSaver;
+import org.wso2.carbon.apimgt.impl.gatewayartifactsynchronizer.DBRetriever;
+import org.wso2.carbon.apimgt.impl.gatewayartifactsynchronizer.DBSaver;
 import org.wso2.carbon.apimgt.impl.handlers.UserPostSelfRegistrationHandler;
+import org.wso2.carbon.apimgt.impl.jwt.JWTValidationService;
+import org.wso2.carbon.apimgt.impl.jwt.JWTValidationServiceImpl;
+import org.wso2.carbon.apimgt.impl.jwt.transformer.JWTTransformer;
+import org.wso2.carbon.apimgt.impl.keymgt.AbstractKeyManagerConnectorConfiguration;
+import org.wso2.carbon.apimgt.impl.keymgt.KeyManagerConfigurationService;
+import org.wso2.carbon.apimgt.impl.keymgt.KeyManagerConfigurationServiceImpl;
+import org.wso2.carbon.apimgt.impl.notifier.ApisNotifier;
+import org.wso2.carbon.apimgt.impl.notifier.ApplicationNotifier;
+import org.wso2.carbon.apimgt.impl.notifier.ApplicationRegistrationNotifier;
+import org.wso2.carbon.apimgt.impl.notifier.DeployAPIInGatewayNotifier;
+import org.wso2.carbon.apimgt.impl.notifier.Notifier;
+import org.wso2.carbon.apimgt.impl.notifier.PolicyNotifier;
+import org.wso2.carbon.apimgt.impl.notifier.SubscriptionsNotifier;
 import org.wso2.carbon.apimgt.impl.observers.APIStatusObserverList;
 import org.wso2.carbon.apimgt.impl.observers.CommonConfigDeployer;
+import org.wso2.carbon.apimgt.impl.observers.KeyMgtConfigDeployer;
 import org.wso2.carbon.apimgt.impl.observers.SignupObserver;
 import org.wso2.carbon.apimgt.impl.observers.TenantLoadMessageSender;
 import org.wso2.carbon.apimgt.impl.recommendationmgt.AccessTokenGenerator;
@@ -68,6 +88,7 @@ import org.wso2.carbon.event.output.adapter.core.OutputEventAdapterService;
 import org.wso2.carbon.event.output.adapter.core.exception.OutputEventAdapterException;
 import org.wso2.carbon.governance.api.util.GovernanceConstants;
 import org.wso2.carbon.identity.event.handler.AbstractEventHandler;
+import org.wso2.carbon.identity.oauth.config.OAuthServerConfiguration;
 import org.wso2.carbon.registry.api.Collection;
 import org.wso2.carbon.registry.api.Registry;
 import org.wso2.carbon.registry.core.ActionConstants;
@@ -103,6 +124,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -117,7 +139,7 @@ public class APIManagerComponent {
     // TODO refactor caching implementation
     private static final Log log = LogFactory.getLog(APIManagerComponent.class);
 
-    private ServiceRegistration registration;
+    ServiceRegistration registration;
 
     private static TenantRegistryLoader tenantRegistryLoader;
 
@@ -132,6 +154,9 @@ public class APIManagerComponent {
     public static final String LABELS = "Labels";
 
     public static final String API_SECURITY = "API Security";
+
+    public static final String TYPE_ELEMENT = "<name>Type</name>";
+
     public static final String ENABLE_SCHEMA_VALIDATION = "Enable Schema Validation";
 
     @Activate
@@ -163,9 +188,27 @@ public class APIManagerComponent {
             bundleContext.registerService(Axis2ConfigurationContextObserver.class.getName(), signupObserver, null);
             TenantLoadMessageSender tenantLoadMessageSender = new TenantLoadMessageSender();
             bundleContext.registerService(Axis2ConfigurationContextObserver.class.getName(), tenantLoadMessageSender, null);
+            KeyMgtConfigDeployer keyMgtConfigDeployer = new KeyMgtConfigDeployer();
+            bundleContext.registerService(Axis2ConfigurationContextObserver.class.getName(), keyMgtConfigDeployer, null);
+
+            //Registering Notifiers
+            bundleContext.registerService(Notifier.class.getName(), new SubscriptionsNotifier(), null);
+            bundleContext.registerService(Notifier.class.getName(), new ApisNotifier(), null);
+            bundleContext.registerService(Notifier.class.getName(), new ApplicationNotifier(), null);
+            bundleContext.registerService(Notifier.class.getName(), new ApplicationRegistrationNotifier(), null);
+            bundleContext.registerService(Notifier.class.getName(), new PolicyNotifier(), null);
+            bundleContext.registerService(Notifier.class.getName(), new DeployAPIInGatewayNotifier(), null);
+
             APIManagerConfigurationServiceImpl configurationService = new APIManagerConfigurationServiceImpl(configuration);
             ServiceReferenceHolder.getInstance().setAPIManagerConfigurationService(configurationService);
             registration = componentContext.getBundleContext().registerService(APIManagerConfigurationService.class.getName(), configurationService, null);
+            KeyManagerConfigurationServiceImpl keyManagerConfigurationService = new KeyManagerConfigurationServiceImpl();
+            registration = componentContext.getBundleContext().registerService(KeyManagerConfigurationService.class,
+                    keyManagerConfigurationService,null);
+            JWTValidationService jwtValidationService = new JWTValidationServiceImpl();
+            registration = componentContext.getBundleContext().registerService(JWTValidationService.class,
+                    jwtValidationService, null);
+            ServiceReferenceHolder.getInstance().setKeyManagerConfigurationService(keyManagerConfigurationService);
             APIStatusObserverList.getInstance().init(configuration);
             log.debug("Reading Analytics Configuration from file...");
             // This method is called in two places. Mostly by the time activate hits,
@@ -182,6 +225,7 @@ public class APIManagerComponent {
             setupImagePermissions();
             APIMgtDBUtil.initialize();
             configureEventPublisherProperties();
+            configureNotificationEventPublisher();
             // Load initially available api contexts at the server startup. This Cache is only use by the products other than the api-manager
             /* TODO: Load Config values from apimgt.core*/
             boolean apiManagementEnabled = APIUtil.isAPIManagementEnabled();
@@ -215,8 +259,8 @@ public class APIManagerComponent {
             } catch (APIManagementException e) {
                 log.error("Failed to convert NULL THROTTLING_TIERS to Unlimited");
             }
-            // Initialise KeyManager.
-            KeyManagerHolder.initializeKeyManager(configuration);
+//            // Initialise KeyManager.
+//            KeyManagerHolder.initializeKeyManager(configuration);
             // Initialise sql constants
             SQLConstantManagerFactory.initializeSQLConstantManager();
             // Initialize PasswordResolver
@@ -264,12 +308,27 @@ public class APIManagerComponent {
             //Initialize Recommendation wso2event output publisher
             configureRecommendationEventPublisherProperties();
             setupAccessTokenGenerator();
+
+            if (configuration.getGatewayArtifactSynchronizerProperties().isSaveArtifactsEnabled()) {
+                if (APIConstants.GatewayArtifactSynchronizer.DB_SAVER_NAME
+                        .equals(configuration.getGatewayArtifactSynchronizerProperties().getSaverName())) {
+                    bundleContext.registerService(ArtifactSaver.class.getName(), new DBSaver(), null);
+                }
+            }
+            if (configuration.getGatewayArtifactSynchronizerProperties().isRetrieveFromStorageEnabled()) {
+                if (APIConstants.GatewayArtifactSynchronizer.DB_RETRIEVER_NAME
+                        .equals(configuration.getGatewayArtifactSynchronizerProperties().getRetrieverName())) {
+                    bundleContext.registerService(ArtifactRetriever.class.getName(), new DBRetriever(), null);
+                }
+            }
+
         } catch (APIManagementException e) {
             log.error("Error while initializing the API manager component", e);
         } catch (APIManagerDatabaseException e) {
             log.fatal("Error while Creating the database", e);
         }
     }
+
 
     @Deactivate
     protected void deactivate(ComponentContext componentContext) {
@@ -397,6 +456,10 @@ public class APIManagerComponent {
                             }
                             // check whether the resource contains a section called 'API Security' and add it
                             if (!RegistryUtils.decodeBytes((byte[]) resource.getContent()).contains(API_SECURITY)) {
+                                updateRegistryResourceContent(resource, systemRegistry, rxtDir, rxtPath, resourcePath);
+                            }
+                            // check whether the resource contains a section called 'Type' and add it
+                            if (!RegistryUtils.decodeBytes((byte[]) resource.getContent()).contains(TYPE_ELEMENT)) {
                                 updateRegistryResourceContent(resource, systemRegistry, rxtDir, rxtPath, resourcePath);
                             }
                             // check whether the resource contains a section called 'enable Schema Validation' and
@@ -709,6 +772,93 @@ public class APIManagerComponent {
         }
     }
 
+    /**
+     * Initialize the Oauth Server configuration Service Service dependency
+     *
+     * @param oauthServerConfiguration Output EventAdapter Service reference
+     */
+    @Reference(
+            name = "oauth.config.service",
+            service = OAuthServerConfiguration.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetOauthServerConfiguration")
+    protected void setOauthServerConfiguration(OAuthServerConfiguration oauthServerConfiguration) {
+        ServiceReferenceHolder.getInstance().setOauthServerConfiguration(oauthServerConfiguration);
+    }
+
+    /**
+     * De-reference the Oauth Server configuration Service dependency.
+     *
+     * @param oAuthServerConfiguration
+     */
+    protected void unsetOauthServerConfiguration(OAuthServerConfiguration oAuthServerConfiguration) {
+        ServiceReferenceHolder.getInstance().setOauthServerConfiguration(null);
+    }
+
+    /**
+     * Initialize the JWTTransformer Server configuration Service Service dependency
+     *
+     * @param jwtTransformer {@link JWTTransformer} service reference.
+     */
+    @Reference(
+            name = "jwt.transformer.service",
+            service = JWTTransformer.class,
+            cardinality = ReferenceCardinality.MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "removeJWTTransformer")
+    protected void addJWTTransformer(JWTTransformer jwtTransformer) {
+
+        ServiceReferenceHolder.getInstance().addJWTTransformer(jwtTransformer.getIssuer(), jwtTransformer);
+    }
+
+    /**
+     * De-reference the JWTTransformer service
+     *
+     * @param jwtTransformer
+     */
+    protected void removeJWTTransformer(JWTTransformer jwtTransformer) {
+        ServiceReferenceHolder.getInstance().removeJWTTransformer(jwtTransformer.getIssuer());
+    }
+
+    /**
+     * Initialize the KeyManager Connector configuration Service Service dependency
+     *
+     * @param keyManagerConnectorConfiguration {@link KeyManagerConnectorConfiguration} service reference.
+     */
+    @Reference(
+            name = "keyManager.connector.service",
+            service = KeyManagerConnectorConfiguration.class,
+            cardinality = ReferenceCardinality.MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "removeKeyManagerConnectorConfiguration")
+    protected void addKeyManagerConnectorConfiguration(
+            KeyManagerConnectorConfiguration keyManagerConnectorConfiguration, Map<String, Object> properties) {
+
+        if (properties.containsKey(APIConstants.KeyManager.KEY_MANAGER_TYPE)) {
+            String type = (String) properties.get(APIConstants.KeyManager.KEY_MANAGER_TYPE);
+            if (keyManagerConnectorConfiguration instanceof AbstractKeyManagerConnectorConfiguration) {
+                ((AbstractKeyManagerConnectorConfiguration) keyManagerConnectorConfiguration).setKeyManagerType(type);
+            }
+            ServiceReferenceHolder.getInstance().addKeyManagerConnectorConfiguration(type,
+                    keyManagerConnectorConfiguration);
+        }
+    }
+
+    /**
+     * De-reference the JWTTransformer service
+     *
+     * @param keyManagerConnectorConfiguration
+     */
+    protected void removeKeyManagerConnectorConfiguration(
+            KeyManagerConnectorConfiguration keyManagerConnectorConfiguration, Map<String, Object> properties) {
+        if (properties.containsKey(APIConstants.KeyManager.KEY_MANAGER_TYPE)){
+            String type = (String) properties.get(APIConstants.KeyManager.KEY_MANAGER_TYPE);
+            ServiceReferenceHolder.getInstance().removeKeyManagerConnectorConfiguration(type);
+        }
+    }
+
+
     private void setupAccessTokenGenerator(){
 
         RecommendationEnvironment recommendationEnvironment = ServiceReferenceHolder.getInstance()
@@ -719,6 +869,97 @@ public class APIManagerComponent {
                     recommendationEnvironment.getConsumerKey(),
                     recommendationEnvironment.getConsumerSecret());
             ServiceReferenceHolder.getInstance().setAccessTokenGenerator(accessTokenGenerator);
+        }
+    }
+
+    @Reference(
+            name = "notifier.component",
+            service = Notifier.class,
+            cardinality = ReferenceCardinality.MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "removeNotifiers")
+    protected void addNotifier(Notifier notifier) {
+        List<Notifier> notifierList = ServiceReferenceHolder.getInstance().getNotifiersMap().get(notifier.getType());
+        if (notifierList == null) {
+            notifierList = new ArrayList<>();
+        }
+        notifierList.add(notifier);
+        ServiceReferenceHolder.getInstance().getNotifiersMap().put(notifier.getType(), notifierList);
+    }
+
+    protected void removeNotifiers(Notifier notifier) {
+
+        ServiceReferenceHolder.getInstance().getNotifiersMap().remove(notifier.getType());
+    }
+
+    @Reference(
+            name = "gateway.artifact.saver",
+            service = ArtifactSaver.class,
+            cardinality = ReferenceCardinality.MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "removeArtifactSaver")
+    protected void addArtifactSaver (ArtifactSaver artifactSaver) {
+
+        GatewayArtifactSynchronizerProperties gatewayArtifactSynchronizerProperties =
+                ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService().getAPIManagerConfiguration()
+                        .getGatewayArtifactSynchronizerProperties();
+
+        if (gatewayArtifactSynchronizerProperties.isSaveArtifactsEnabled()
+                && gatewayArtifactSynchronizerProperties.getSaverName().equals(artifactSaver.getName())) {
+            ServiceReferenceHolder.getInstance().setArtifactSaver(artifactSaver);
+
+            try {
+                ServiceReferenceHolder.getInstance().getArtifactSaver().init();
+            } catch (Exception e) {
+                log.error("Error connecting with the Artifact Saver");
+                removeArtifactSaver(null);
+            }
+        }
+    }
+
+    protected void removeArtifactSaver(ArtifactSaver artifactSaver) {
+        ServiceReferenceHolder.getInstance().getArtifactSaver().disconnect();
+        ServiceReferenceHolder.getInstance().setArtifactSaver(null);
+    }
+
+    /**
+     * Method to configure wso2event type event adapter to be used for event notification.
+     */
+    private void configureNotificationEventPublisher() {
+
+        OutputEventAdapterConfiguration adapterConfiguration = new OutputEventAdapterConfiguration();
+        adapterConfiguration.setName(APIConstants.EVENT_HUB_NOTIFICATION_EVENT_PUBLISHER);
+        adapterConfiguration.setType(APIConstants.BLOCKING_EVENT_TYPE);
+        adapterConfiguration.setMessageFormat(APIConstants.BLOCKING_EVENT_FORMAT);
+        Map<String, String> adapterParameters = new HashMap<>();
+        if (ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService() != null) {
+            APIManagerConfiguration configuration =
+                    ServiceReferenceHolder.getInstance().getAPIManagerConfigurationService()
+                            .getAPIManagerConfiguration();
+            if (configuration.getEventHubConfigurationDto().getEventHubPublisherConfiguration() != null &&
+                    configuration.getEventHubConfigurationDto().isEnabled()) {
+                EventHubConfigurationDto eventHubConfigurationDto = configuration.getEventHubConfigurationDto();
+                EventHubConfigurationDto.EventHubPublisherConfiguration eventHubPublisherConfiguration =
+                        eventHubConfigurationDto.getEventHubPublisherConfiguration();
+                adapterParameters.put(APIConstants.RECEIVER_URL, eventHubPublisherConfiguration.getReceiverUrlGroup());
+                adapterParameters.put(APIConstants.AUTHENTICATOR_URL, eventHubPublisherConfiguration.getAuthUrlGroup());
+                adapterParameters.put(APIConstants.USERNAME, eventHubConfigurationDto.getUsername());
+                adapterParameters.put(APIConstants.PASSWORD, eventHubConfigurationDto.getPassword());
+                adapterParameters.put(APIConstants.PROTOCOL, eventHubPublisherConfiguration.getType());
+                adapterParameters.put(APIConstants.PUBLISHING_MODE, APIConstants.NON_BLOCKING);
+                adapterParameters.put(APIConstants.PUBLISHING_TIME_OUT, "0");
+                adapterConfiguration.setStaticProperties(adapterParameters);
+                try {
+                    ServiceReferenceHolder.getInstance().getOutputEventAdapterService().create(adapterConfiguration);
+                } catch (OutputEventAdapterException e) {
+                    log.warn("Exception occurred while creating WSO2 Event Adapter. Event notification may not work "
+                            + "properly", e);
+                }
+            } else {
+                log.info("Wso2Event Publisher not enabled.");
+            }
+        } else {
+            log.info("api-manager.xml not loaded. Wso2Event Publisher will not be enabled.");
         }
     }
 }

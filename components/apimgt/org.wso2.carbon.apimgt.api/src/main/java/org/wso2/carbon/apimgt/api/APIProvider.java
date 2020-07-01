@@ -18,6 +18,8 @@
 package org.wso2.carbon.apimgt.api;
 
 import org.json.simple.JSONObject;
+import org.wso2.carbon.apimgt.api.doc.model.APIResource;
+import org.json.simple.parser.ParseException;
 import org.wso2.carbon.apimgt.api.dto.CertificateInformationDTO;
 import org.wso2.carbon.apimgt.api.dto.CertificateMetadataDTO;
 import org.wso2.carbon.apimgt.api.dto.ClientCertificateDTO;
@@ -28,6 +30,8 @@ import org.wso2.carbon.apimgt.api.model.policy.ApplicationPolicy;
 import org.wso2.carbon.apimgt.api.model.policy.GlobalPolicy;
 import org.wso2.carbon.apimgt.api.model.policy.Policy;
 import org.wso2.carbon.apimgt.api.model.policy.SubscriptionPolicy;
+import org.wso2.carbon.registry.api.RegistryException;
+import org.wso2.carbon.user.api.UserStoreException;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -177,9 +181,44 @@ public interface APIProvider extends APIManager {
      */
     long getAPISubscriptionCountByAPI(APIIdentifier identifier) throws APIManagementException;
 
+    /**
+     * Returns the subscriber name for the given subscription id.
+     *
+     * @param subscriptionId The subscription id of the subscriber to be returned
+     * @return The subscriber or null if the requested subscriber does not exist
+     * @throws APIManagementException if failed to get Subscriber
+     */
+    String getSubscriber(String subscriptionId) throws APIManagementException;
+
+    /**
+     * Returns the claims of subscriber for the given subscriber.
+     *
+     * @param subscriber The name of the subscriber to be returned
+     * @return The looked up claims of the subscriber or null if the requested subscriber does not exist
+     * @throws APIManagementException if failed to get Subscriber
+     */
+    Map getSubscriberClaims(String subscriber) throws APIManagementException;
+
     void addTier(Tier tier) throws APIManagementException;
 
     void addPolicy(Policy policy) throws APIManagementException;
+
+    /**
+     * Deletes a subscription block condition when the condition key is given
+     *
+     * @param conditionValue condition key ex: /api/1.0:admin-testApplication:SANDBOX
+     * @throws APIManagementException
+     */
+    void deleteSubscriptionBlockCondition(String conditionValue) throws APIManagementException;
+
+    /**
+     * Get the context of API identified by the given APIIdentifier
+     *
+     * @param apiId api identifier
+     * @return apiContext
+     * @throws APIManagementException if failed to fetch the context for apiID
+     */
+    String getAPIContext(APIIdentifier apiId) throws APIManagementException;
 
 
     /**
@@ -728,6 +767,26 @@ public interface APIProvider extends APIManager {
     void saveSwaggerDefinition(APIProduct apiProduct, String jsonText) throws APIManagementException;
 
     /**
+     * This method adds the swagger definition of an API Product in registry
+     *
+     * @param apiToProductResourceMapping   List of API Product resource mappings
+     * @param apiProduct   API Product
+     * @throws APIManagementException
+     */
+    void addAPIProductSwagger(Map<API, List<APIProductResource>> apiToProductResourceMapping, APIProduct apiProduct)
+            throws APIManagementException;
+
+    /**
+     * This method updates the swagger definition of an API Product in registry
+     *
+     * @param apiToProductResourceMapping   List of API Product resource mappings
+     * @param apiProduct   API Product
+     * @throws APIManagementException
+     */
+    void updateAPIProductSwagger(Map<API, List<APIProductResource>> apiToProductResourceMapping, APIProduct apiProduct)
+            throws APIManagementException, FaultGatewaysException;
+
+    /**
      * This method validates the existence of all the resource level throttling tiers in URI templates of API
      *
      * @param api           api
@@ -939,6 +998,18 @@ public interface APIProvider extends APIManager {
     String addBlockCondition(String conditionType, String conditionValue) throws APIManagementException;
 
     /**
+     *  Add a block condition with condition status
+     *
+     * @param conditionType type of the condition (IP, Context .. )
+     * @param conditionValue value of the condition
+     * @param conditionStatus status of the condition
+     * @return UUID of the new Block Condition
+     * @throws APIManagementException
+     */
+    String addBlockCondition(String conditionType, String conditionValue, boolean conditionStatus)
+            throws APIManagementException;
+
+    /**
      * Deletes a block condition given its Id
      *
      * @param conditionId Id of the condition
@@ -1067,6 +1138,18 @@ public interface APIProvider extends APIManager {
      * @throws APIManagementException API Management Exception.
      */
     List<ClientCertificateDTO> searchClientCertificates(int tenantId, String alias, APIIdentifier apiIdentifier)
+            throws APIManagementException;
+
+    /**
+     * Method to search the client certificates for the provided tenant id, alias and api product identifier.
+     *
+     * @param tenantId      : ID of the tenant.
+     * @param alias         : Alias of the certificate.
+     * @param apiProductIdentifier : Identifier of the API Product.
+     * @return list of client certificates that match search criteria.
+     * @throws APIManagementException API Management Exception.
+     */
+    List<ClientCertificateDTO> searchClientCertificates(int tenantId, String alias, APIProductIdentifier apiProductIdentifier)
             throws APIManagementException;
 
     /**
@@ -1287,4 +1370,131 @@ public interface APIProvider extends APIManager {
      * @throws APIManagementException
      */
     JSONObject getSecurityAuditAttributesFromConfig(String userId) throws APIManagementException;
+
+    /**
+     * Find the resources that should be removed from API Products,
+     * because those have been already removed from the swagger definition of the updating API.
+     *
+     * @param apiId API Identifier
+     * @param apiDefinition swagger definition
+     * @return  List of resources to be removed that are reused among API Products
+     * @throws APIManagementException when error updating resources
+     */
+    List<APIResource> getResourcesToBeRemovedFromAPIProducts(APIIdentifier apiId, String apiDefinition)
+            throws APIManagementException;
+
+    /**
+     * Finds resources that have been removed in the updated API URITemplates,
+     * that are currently reused by API Products.
+     *
+     * @param updatedUriTemplates Updated URITemplates
+     * @param existingAPI         Existing API
+     * @return List of removed resources that are reused among API Products
+     */
+    List<APIResource> getRemovedProductResources(Set<URITemplate> updatedUriTemplates, API existingAPI);
+
+    /**
+     * Check whether the given scope name exists as a shared scope in the tenant domain.
+     *
+     * @param scopeName    Shared Scope name
+     * @param tenantDomain Tenant Domain
+     * @return Scope availability
+     * @throws APIManagementException if failed to check the availability
+     */
+    boolean isSharedScopeNameExists(String scopeName, String tenantDomain) throws APIManagementException;
+
+    /**
+     * Add a shared scope.
+     *
+     * @param scope        Shared Scope
+     * @param tenantDomain Tenant domain
+     * @return UUID of the added Shared Scope
+     * @throws APIManagementException if failed to add a scope
+     */
+    String addSharedScope(Scope scope, String tenantDomain) throws APIManagementException;
+
+    /**
+     * Get all available shared scopes.
+     *
+     * @param tenantDomain tenant domain
+     * @return Shared Scope list
+     * @throws APIManagementException if failed to get the scope list
+     */
+    List<Scope> getAllSharedScopes(String tenantDomain) throws APIManagementException;
+
+    /**
+     * Get all available shared scope keys.
+     *
+     * @param tenantDomain tenant domain
+     * @return Shared Scope Keyset
+     * @throws APIManagementException if failed to get the scope key set
+     */
+    Set<String> getAllSharedScopeKeys(String tenantDomain) throws APIManagementException;
+
+    /**
+     * Get shared scope by UUID.
+     *
+     * @param sharedScopeId Shared scope Id
+     * @param tenantDomain  tenant domain
+     * @return Shared Scope
+     * @throws APIManagementException If failed to get the scope
+     */
+    Scope getSharedScopeByUUID(String sharedScopeId, String tenantDomain) throws APIManagementException;
+
+    /**
+     * Delete shared scope.
+     *
+     * @param scopeName Shared scope name
+     * @param tenantDomain  tenant domain
+     * @throws APIManagementException If failed to delete the scope
+     */
+    void deleteSharedScope(String scopeName, String tenantDomain) throws APIManagementException;
+
+    /**
+     * Update a shared scope.
+     *
+     * @param sharedScope  Shared Scope
+     * @param tenantDomain tenant domain
+     * @throws APIManagementException If failed to update
+     */
+    void updateSharedScope(Scope sharedScope, String tenantDomain) throws APIManagementException;
+
+    /**
+     * Validate a shared scopes set. Add the additional attributes (scope description, bindings etc).
+     *
+     * @param scopes       Shared scopes set
+     * @param tenantDomain Tenant domain
+     * @throws APIManagementException If failed to validate
+     */
+    void validateSharedScopes(Set<Scope> scopes, String tenantDomain) throws APIManagementException;
+
+    /**
+     * Get the API and URI usages of the given shared scope
+     *
+     * @param uuid       UUID of the shared scope
+     * @param tenantId ID of the Tenant domain
+     * @throws APIManagementException If failed to validate
+     */
+    SharedScopeUsage getSharedScopeUsage(String uuid, int tenantId) throws APIManagementException;
+
+    /**
+     * This method is used to publish the api in private jet mode
+     *
+     * @param api           API Object
+     * @param apiIdentifier api identifier
+     * @throws APIManagementException if failed to add the schema as a resource to registry
+     * @throws IOException            if getTenantConfigContent returns nothing (But Never Happens that)
+     * @throws ParseException         for json file reading
+     */
+    void publishInPrivateJet(API api, APIIdentifier apiIdentifier) throws ParseException,
+            UserStoreException, RegistryException, IllegalAccessException, InstantiationException, ClassNotFoundException, APIManagementException;
+
+    /**
+     * Retrieve the status information of the deployments of APIs cloud clusters
+     * that are currently reused by API Products.
+     *
+     * @param apiId API Identifier
+     * @return a list of Deploymentstatus objects in different cloud environments
+     */
+    List <DeploymentStatus> getDeploymentStatus(APIIdentifier apiId) throws APIManagementException ;
 }

@@ -24,8 +24,10 @@ import java.util.Map;
 public class AlertMgtConstants {
 
     public static final String PUBLISHER_AGENT = "publisher";
+    public static final String ADMIN_DASHBOARD_AGENT = "admin-dashboard";
     public static final String APIM_STAKEHOLDER_ALERT_APP = "APIM_STAKEHOLDER_ALERT";
     public static final String APIM_ALERT_CONFIG_APP = "APIM_CONFIGURATION_ALERT";
+    public static final String APIM_ALERT_BOT_DETECTION_APP = "APIM_ALERT_BOT_DETECTION_EMAIL";
     public static final String API_NAME_KEY = "apiName";
     public static final String API_CREATOR_KEY = "apiCreator";
     public static final String API_VERSION_KEY = "apiVersion";
@@ -38,6 +40,10 @@ public class AlertMgtConstants {
     public static final String STORE_AGENT = "subscriber";
     public static final String APPLICATION_ID_KEY = "applicationId";
     public static final String REQUEST_COUNT_KEY = "requestCount";
+
+    //Bot detection alert subscription related constants
+    public static final String BOT_DETECTION_UUID_FIELD = "uuid";
+    public static final String BOT_DETECTION_EMAIL_FIELD = "email";
 
     public static Map<String, String> alertTypeConfigMap;
     static {

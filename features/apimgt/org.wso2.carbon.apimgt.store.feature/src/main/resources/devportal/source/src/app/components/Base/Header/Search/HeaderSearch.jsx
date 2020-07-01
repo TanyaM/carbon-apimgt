@@ -40,6 +40,7 @@ const styles = theme => ({
         position: 'absolute',
         width: '517px',
         zIndex: theme.zIndex.modal + 1,
+        backgroundColor: theme.custom.appBar.searchInputActiveBackground,
     },
     suggestion: {
         display: 'block',
@@ -48,6 +49,9 @@ const styles = theme => ({
         margin: 0,
         padding: 0,
         listStyleType: 'none',
+        '& span, & p, & svg': {
+            color: theme.palette.getContrastText(theme.custom.appBar.searchInputBackground),
+        }
     },
     inputRoot: {
         flexDirection: 'row',
@@ -78,6 +82,8 @@ const styles = theme => ({
         borderRight: '1px solid rgba(0, 0, 0, 0.42)',
         minHeight: '40px',
         padding: '5px 5px 5px 15px',
+        background: theme.custom.appBar.searchInputBackground,
+        color: theme.palette.getContrastText(theme.custom.appBar.searchInputBackground),
     },
     infoButton: {
         margin: theme.spacing(1),
@@ -96,6 +102,10 @@ const styles = theme => ({
         borderRadius: '5px',
         padding: '15px 10px 0 18px',
     },
+    ariaLabel: {
+        width: 0,
+        height: 0,
+    }
 });
 
 /**
@@ -304,6 +314,7 @@ class HeaderSearch extends React.Component {
                 />
                 <Tooltip
                     interactive
+                    id='searchTooltip'
                     placement='top'
                     classes={{
                         tooltip: classes.InfoToolTip,
@@ -379,7 +390,7 @@ class HeaderSearch extends React.Component {
                         </React.Fragment>
                     }
                 >
-                    <IconButton className={classes.infoButton} >
+                    <IconButton className={classes.infoButton} aria-label='Search Options'>
                         <InfoIcon />
                     </IconButton>
                 </Tooltip>

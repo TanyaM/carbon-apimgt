@@ -45,6 +45,7 @@ import classNames from 'classnames';
 import HeaderSearch from 'AppComponents/Base/Header/Search/HeaderSearch';
 import Settings from 'AppComponents/Shared/SettingsContext';
 import { app } from 'Settings';
+import ReactSafeHtml from 'react-safe-html';
 import AuthManager from '../../data/AuthManager';
 import LanuageSelector from './Header/LanuageSelector';
 import GlobalNavBar from './Header/GlobalNavbar';
@@ -54,7 +55,7 @@ const styles = (theme) => {
     const pageMaxWidth = theme.custom.page.style === 'fluid' ? 'none' : theme.custom.page.width;
     return {
         appBar: {
-            position: 'relative',
+            position: 'fixed',
             backgroundColor: theme.custom.appBar.background,
             backgroundImage: `url(${app.context}${theme.custom.appBar.backgroundImage})`,
             backgroundRepeat: 'no-repeat',
@@ -84,14 +85,17 @@ const styles = (theme) => {
         wrapper: {
             minHeight: '100%',
             marginBottom: -50,
-            background: theme.palette.background.default + ' url(' + theme.custom.backgroundImage + ') repeat left top',
+            background: theme.palette.background.default + ' url(' + app.context + theme.custom.backgroundImage + ') repeat left top',
         },
         contentWrapper: {
             display: 'flex',
             flexDirection: 'row',
-            overflowY: 'hidden',
+            overflowY: 'auto',
+            overflowX: 'hidden',
             position: 'relative',
             minHeight: 'calc(100vh - 114px)',
+            marginLeft: -4,
+            marginTop: 64,
         },
         push: {
             height: 50,
@@ -100,7 +104,7 @@ const styles = (theme) => {
             background: theme.custom.footer.background,
             color: theme.custom.footer.color,
             paddingLeft: theme.spacing(3),
-            height: 50,
+            height: theme.custom.footer.height || 50,
             alignItems: 'center',
             display: 'flex',
         },
@@ -150,6 +154,10 @@ const styles = (theme) => {
         listRoot: {
             padding: 0,
         },
+        listRootInline: {
+            padding: 0,
+            display: 'flex',
+        },
         listItemTextRoot: {
             padding: 0,
         },
@@ -194,6 +202,9 @@ const styles = (theme) => {
             padding: `0 ${theme.spacing(1)}px 0 ${theme.spacing(1)}px `,
             height: 30,
         },
+        logoutLink: {
+            color: theme.palette.getContrastText(theme.palette.background.paper),
+        }
     };
 };
 
@@ -323,14 +334,15 @@ class Layout extends React.Component {
                     showSearch,
                 },
                 footer: {
-                    active: footerActive, text: footerText,
+                    active: footerActive, text: footerText, footerHTML,
                 },
                 languageSwitch: { active: languageSwitchActive },
+                publicTenantStore,
             },
         } = theme;
         const { openNavBar, selected } = this.state;
         const { tenantDomain, setTenantDomain } = this.context;
-        const { customUrl: { enabled: customUrlEnabled, tenantDomain: customUrlEnabledDomain } } = app;
+        const { customUrl: { tenantDomain: customUrlEnabledDomain } } = app;
 
         const user = AuthManager.getUser();
         // TODO: Refer to fix: https://github.com/mui-org/material-ui/issues/10076#issuecomment-361232810 ~tmkb
@@ -346,6 +358,13 @@ class Layout extends React.Component {
 
         const strokeColor = theme.palette.getContrastText(theme.custom.appBar.background);
         const strokeColorSelected = theme.palette.getContrastText(theme.custom.appBar.activeBackground);
+
+        let publicTenantStoreVisible = true;
+
+        if (publicTenantStore) {
+            const { active: publicTenantStoreActive } = publicTenantStore;
+            publicTenantStoreVisible = publicTenantStoreActive;
+        }
         return (
             <>
                 {active && (
@@ -373,7 +392,7 @@ class Layout extends React.Component {
                                         <Icon className={classes.menuIcon}>menu</Icon>
                                     </IconButton>
                                 </Hidden>
-                                <Link to='/' id='logoLink'>
+                                <Link to='/' id='logoLink' aria-label='Go to home page'>
                                     <img
                                         alt={(
                                             <FormattedMessage
@@ -432,68 +451,38 @@ class Layout extends React.Component {
                                 </Hidden>
                                 <VerticalDivider height={32} />
                                 {showSearch && (<HeaderSearch id='headerSearch' />)}
-                                {tenantDomain && customUrlEnabledDomain === 'null' && tenantDomain !== 'INVALID' && (
-                                    <Link
-                                        style={{
-                                            textDecoration: 'none',
-                                            color: '#ffffff',
-                                        }}
-                                        to='/'
-                                        onClick={() => setTenantDomain('INVALID')}
-                                        id='gotoPubulicDevPortal'
-                                    >
-                                        <Button className={classes.publicStore}>
-                                            <Icon className={classes.icons}>public</Icon>
-                                            <Hidden mdDown>
-                                                <FormattedMessage
-                                                    id='Base.index.go.to.public.store'
-                                                    defaultMessage='Go to public Dev Portal'
-                                                />
-                                            </Hidden>
-                                        </Button>
-                                    </Link>
-                                )}
+                                {tenantDomain && customUrlEnabledDomain === 'null' && tenantDomain !== 'INVALID'
+                                    && publicTenantStoreVisible && (
+                                        <Link
+                                            style={{
+                                                textDecoration: 'none',
+                                                color: '#ffffff',
+                                            }}
+                                            to='/'
+                                            onClick={() => setTenantDomain('INVALID')}
+                                            id='gotoPubulicDevPortal'
+                                        >
+                                            <Button className={classes.publicStore}>
+                                                <Icon className={classes.icons}>public</Icon>
+                                                <Hidden mdDown>
+                                                    <FormattedMessage
+                                                        id='Base.index.go.to.public.store'
+                                                        defaultMessage='Go to public Dev Portal'
+                                                    />
+                                                </Hidden>
+                                            </Button>
+                                        </Link>
+                                    )}
                                 <VerticalDivider height={64} />
                                 {languageSwitchActive && <LanuageSelector />}
                                 {user ? (
                                     <>
                                         <div className={classes.linkWrapper}>
-                                            <List className={classes.listRoot}>
-                                                <Link to='/settings' id='settingsLink' className={classNames({ [classes.selected]: selected === 'settings', [classes.links]: true })}>
-                                                    <ListItem button>
-                                                        <ListItemIcon classes={{ root: classes.listIconRoot }}>
-                                                            <Icon
-                                                                className={classes.icons}
-                                                                style={{
-                                                                    color: selected === 'settings'
-                                                                        ? strokeColorSelected
-                                                                        : strokeColor
-                                                                }}>settings</Icon>
-                                                        </ListItemIcon>
-                                                        <Hidden mdDown>
-                                                             <ListItemText
-                                                                classes={{
-                                                                    root: classes.listItemTextRoot,
-                                                                    primary: classNames({
-                                                                        [classes.selectedText]: selected === 'settings',
-                                                                        [classes.listText]: selected !== 'settings',
-                                                                    }),
-                                                                }}
-                                                                primary={intl.formatMessage({
-                                                                    id: 'Base.Header.GlobalNavbar.menu.settings',
-                                                                    defaultMessage: 'Settings',
-                                                                })}
-                                                            />
-                                                        </Hidden>
-                                                    </ListItem>
-                                                    {selected === 'settings' && (<div className={classes.triangleDown}></div>)}
-                                                </Link>
-                                            </List>
                                             <Button
                                                 buttonRef={(node) => {
                                                     this.anchorEl = node;
                                                 }}
-                                                aria-owns={open ? 'menu-list-grow' : null}
+                                                aria-owns={this.openUserMenu ? 'menu-list-grow' : null}
                                                 aria-haspopup='true'
                                                 onClick={this.handleToggleUserMenu}
                                                 className={classes.userLink}
@@ -516,6 +505,7 @@ class Layout extends React.Component {
                                                     vertical: 'top',
                                                     horizontal: 'center',
                                                 }}
+                                                placement='bottom-end'
                                             >
                                                 {({ TransitionProps, placement }) => (
                                                     <Grow
@@ -529,7 +519,43 @@ class Layout extends React.Component {
                                                         <Paper>
                                                             <ClickAwayListener onClickAway={this.handleCloseUserMenu}>
                                                                 <MenuList>
-                                                                    <MenuItem onClick={this.doOIDCLogout}>
+                                                                    <MenuItem className={classes.logoutLink}>
+                                                                        <Link
+                                                                            to='/settings/manage-alerts'
+                                                                            onClick={this.handleCloseUserMenu}
+                                                                        >
+                                                                            <FormattedMessage
+                                                                                id='Base.index.settingsMenu.alertConfiguration'
+                                                                                defaultMessage='Alert configure'
+                                                                            />
+                                                                        </Link>
+                                                                    </MenuItem>
+                                                                    <MenuItem className={classes.logoutLink}>
+                                                                        <Link
+                                                                            to={'/settings/change-password/'}
+                                                                            onClick={this.handleCloseUserMenu}
+                                                                        >
+                                                                            <FormattedMessage
+                                                                                id='Base.index.settingsMenu.changePassword'
+                                                                                defaultMessage='Change Password'
+                                                                            />
+                                                                        </Link>
+                                                                    </MenuItem>
+                                                                    {/* {user.name !== 'admin' ?
+                                                                        <MenuItem className={classes.logoutLink}>
+                                                                            <Link
+                                                                                to={'/settings/change-password/'}
+                                                                                onClick={this.handleCloseUserMenu}
+                                                                            >
+                                                                                <FormattedMessage
+                                                                                    id='Base.index.settingsMenu.changePassword'
+                                                                                    defaultMessage='Change Password'
+                                                                                />
+                                                                            </Link>
+                                                                        </MenuItem> :
+                                                                        null
+                                                                    } */}
+                                                                    <MenuItem onClick={this.doOIDCLogout} className={classes.logoutLink}>
                                                                         <FormattedMessage
                                                                             id='Base.index.logout'
                                                                             defaultMessage='Logout'
@@ -560,14 +586,18 @@ class Layout extends React.Component {
                     </div>
                     {footerActive && (
                         <footer className={classes.footer} id='footer'>
-                            <Typography noWrap>
+                            {footerHTML && footerHTML !== '' ? (
+                                <>
+                                    {<ReactSafeHtml html={footerHTML} />}
+                                </>
+                            ) : (<Typography noWrap>
                                 {footerText && footerText !== '' ? <span>{footerText}</span> : (
                                     <FormattedMessage
                                         id='Base.index.copyright.text'
-                                        defaultMessage='WSO2 API-M v3.1.0 | © 2020 WSO2 Inc'
+                                        defaultMessage='WSO2 API-M v3.2.0 | © 2020 WSO2 Inc'
                                     />
                                 )}
-                            </Typography>
+                            </Typography>)}
                         </footer>
                     )}
                 </div>

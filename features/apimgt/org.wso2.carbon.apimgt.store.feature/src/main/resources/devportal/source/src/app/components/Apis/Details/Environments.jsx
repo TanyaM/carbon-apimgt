@@ -25,6 +25,7 @@ import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails';
 import CloudDownloadRounded from '@material-ui/icons/CloudDownloadRounded';
 import Button from '@material-ui/core/Button';
 import Grid from '@material-ui/core/Grid';
+import IconButton from '@material-ui/core/IconButton';
 import CopyToClipboard from 'react-copy-to-clipboard';
 import Tooltip from '@material-ui/core/Tooltip';
 import TextField from '@material-ui/core/TextField';
@@ -75,7 +76,13 @@ const styles = theme => ({
         },
     },
     iconStyle: {
-        cursor: 'grab',
+        cursor: 'pointer',
+        margin: '-10px 0',
+    },
+    envRoot: {
+        '& span, & h5, & label, & td, & li': {
+            color: theme.palette.getContrastText(theme.palette.background.paper),
+        }
     },
 });
 
@@ -157,10 +164,26 @@ class Environments extends React.Component {
         const { api } = this.context;
         const { classes, intl } = this.props;
         const { urlCopied } = this.state;
+        // let kubernetes = 'kuberenetes'
 
+        // let kubernetes = [{
+        //     "EnvName" : "Kubernetes",
+        //     "clusterDetails" : [
+        //         {
+        //             "clusterName" : "Docker-desktop",
+        //             "ingressURL" : "http://wso2.com:9443"
+        //         },
+        //         {
+        //             "clusterName" : "Minikube",
+        //             "ingressURL" : "http://wso2.system.com:9443"
+        //         }
+        //     ]
+        // }]
+
+        let kubernetes = []
 
         return (
-            <Grid container spacing={2} item xs={12}>
+            <Grid container spacing={2} item xs={12} className={classes.envRoot}>
                 {api.endpointURLs.map((endpoint) => {
                     return (
                         <Grid key={endpoint} item xs={12} key={endpoint.environmentName}>
@@ -193,13 +216,13 @@ class Environments extends React.Component {
                                             || endpoint.URLs.https !== null
                                             || endpoint.URLs.ws !== null
                                             || endpoint.URLs.wss !== null) && (
-                                            <Typography className={classes.heading}>
-                                                <FormattedMessage
-                                                    id='Apis.Details.InfoBar.gateway.urls'
-                                                    defaultMessage='Gateway URLs'
-                                                />
-                                            </Typography>
-                                        )}
+                                                <Typography className={classes.heading}>
+                                                    <FormattedMessage
+                                                        id='Apis.Details.InfoBar.gateway.urls'
+                                                        defaultMessage='Gateway URLs'
+                                                    />
+                                                </Typography>
+                                            )}
                                         {endpoint.URLs.http !== null && (
                                             <Grid item xs={12}>
                                                 <TextField
@@ -237,7 +260,9 @@ class Environments extends React.Component {
                                                         text={endpoint.URLs.http}
                                                         onCopy={() => this.onCopy('urlCopied')}
                                                     >
-                                                        <Icon color='secondary'>insert_drive_file</Icon>
+                                                        <IconButton aria-label='Copy to clipboard'>
+                                                            <Icon color='secondary'>insert_drive_file</Icon>
+                                                        </IconButton>
                                                     </CopyToClipboard>
                                                 </Tooltip>
                                             </Grid>
@@ -279,7 +304,9 @@ class Environments extends React.Component {
                                                         text={endpoint.URLs.https}
                                                         onCopy={() => this.onCopy('urlCopied')}
                                                     >
-                                                        <Icon color='secondary'>insert_drive_file</Icon>
+                                                        <IconButton aria-label='Copy to clipboard'>
+                                                            <Icon color='secondary'>insert_drive_file</Icon>
+                                                        </IconButton>
                                                     </CopyToClipboard>
                                                 </Tooltip>
                                             </Grid>
@@ -321,7 +348,9 @@ class Environments extends React.Component {
                                                         text={endpoint.URLs.ws}
                                                         onCopy={() => this.onCopy('urlCopied')}
                                                     >
-                                                        <Icon color='secondary'>insert_drive_file</Icon>
+                                                        <IconButton aria-label='Copy to clipboard'>
+                                                            <Icon color='secondary'>insert_drive_file</Icon>
+                                                        </IconButton>
                                                     </CopyToClipboard>
                                                 </Tooltip>
                                             </Grid>
@@ -363,7 +392,9 @@ class Environments extends React.Component {
                                                         text={endpoint.URLs.wss}
                                                         onCopy={() => this.onCopy('urlCopied')}
                                                     >
-                                                        <Icon color='secondary'>insert_drive_file</Icon>
+                                                        <IconButton aria-label='Copy to clipboard'>
+                                                            <Icon color='secondary'>insert_drive_file</Icon>
+                                                        </IconButton>
                                                     </CopyToClipboard>
                                                 </Tooltip>
                                             </Grid>
@@ -373,183 +404,257 @@ class Environments extends React.Component {
                                                 endpoint.defaultVersionURLs.https !== null ||
                                                 endpoint.defaultVersionURLs.ws !== null ||
                                                 endpoint.defaultVersionURLs.wss !== null) && (
-                                            <Typography className={classes.heading}>
+                                                <Typography className={classes.heading}>
                                                     <FormattedMessage
-                                                    id='Apis.Details.InfoBar.default.gateway.urls'
-                                                    defaultMessage='Default Gateway URLs'
-                                                />
+                                                        id='Apis.Details.InfoBar.default.gateway.urls'
+                                                        defaultMessage='Default Gateway URLs'
+                                                    />
                                                 </Typography>
-                                        )}
+                                            )}
                                         {endpoint.defaultVersionURLs !== null &&
                                             endpoint.defaultVersionURLs.http !== null && (
-                                            <Grid item xs={12}>
-                                                <TextField
-                                                    defaultValue={endpoint.defaultVersionURLs.http}
-                                                    id='bootstrap-input'
-                                                    InputProps={{
-                                                        disableUnderline: true,
-                                                        readOnly: true,
-                                                        classes: {
-                                                            root: classes.bootstrapRoot,
-                                                            input: classes.bootstrapInput,
-                                                        },
-                                                    }}
-                                                    InputLabelProps={{
-                                                        shrink: true,
-                                                        className: classes.bootstrapFormLabel,
-                                                    }}
-                                                />
-                                                <Tooltip
-                                                    title={
-                                                        urlCopied
-                                                            ? intl.formatMessage({
-                                                                defaultMessage: 'Copied',
-                                                                id: 'Apis.Details.Environments.copied',
-                                                            })
-                                                            : intl.formatMessage({
-                                                                defaultMessage: 'Copy to clipboard',
-                                                                id: 'Apis.Details.Environments.copy.to.clipboard',
-                                                            })
-                                                    }
-                                                    placement='right'
-                                                    className={classes.iconStyle}
-                                                >
-                                                    <CopyToClipboard
-                                                        text={endpoint.defaultVersionURLs.http}
-                                                        onCopy={() => this.onCopy('urlCopied')}
+                                                <Grid item xs={12}>
+                                                    <TextField
+                                                        defaultValue={endpoint.defaultVersionURLs.http}
+                                                        id='bootstrap-input'
+                                                        InputProps={{
+                                                            disableUnderline: true,
+                                                            readOnly: true,
+                                                            classes: {
+                                                                root: classes.bootstrapRoot,
+                                                                input: classes.bootstrapInput,
+                                                            },
+                                                        }}
+                                                        InputLabelProps={{
+                                                            shrink: true,
+                                                            className: classes.bootstrapFormLabel,
+                                                        }}
+                                                    />
+                                                    <Tooltip
+                                                        title={
+                                                            urlCopied
+                                                                ? intl.formatMessage({
+                                                                    defaultMessage: 'Copied',
+                                                                    id: 'Apis.Details.Environments.copied',
+                                                                })
+                                                                : intl.formatMessage({
+                                                                    defaultMessage: 'Copy to clipboard',
+                                                                    id: 'Apis.Details.Environments.copy.to.clipboard',
+                                                                })
+                                                        }
+                                                        placement='right'
+                                                        className={classes.iconStyle}
                                                     >
-                                                        <Icon color='secondary'>file_copy</Icon>
-                                                    </CopyToClipboard>
-                                                </Tooltip>
-                                            </Grid>
-                                        )}
+                                                        <CopyToClipboard
+                                                            text={endpoint.defaultVersionURLs.http}
+                                                            onCopy={() => this.onCopy('urlCopied')}
+                                                        >
+                                                            <IconButton aria-label='Copy to clipboard'>
+                                                                <Icon color='secondary'>file_copy</Icon>
+                                                            </IconButton>
+                                                        </CopyToClipboard>
+                                                    </Tooltip>
+                                                </Grid>
+                                            )}
                                         {endpoint.defaultVersionURLs !== null &&
                                             endpoint.defaultVersionURLs.https !== null && (
-                                            <Grid item xs={12}>
-                                                <TextField
-                                                    defaultValue={endpoint.defaultVersionURLs.https}
-                                                    id='bootstrap-input'
-                                                    InputProps={{
-                                                        disableUnderline: true,
-                                                        readOnly: true,
-                                                        classes: {
-                                                            root: classes.bootstrapRoot,
-                                                            input: classes.bootstrapInput,
-                                                        },
-                                                    }}
-                                                    InputLabelProps={{
-                                                        shrink: true,
-                                                        className: classes.bootstrapFormLabel,
-                                                    }}
-                                                />
-                                                <Tooltip
-                                                    title={
-                                                        urlCopied
-                                                            ? intl.formatMessage({
-                                                                defaultMessage: 'Copied',
-                                                                id: 'Apis.Details.Environments.copied',
-                                                            })
-                                                            : intl.formatMessage({
-                                                                defaultMessage: 'Copy to clipboard',
-                                                                id: 'Apis.Details.Environments.copy.to.clipboard',
-                                                            })
-                                                    }
-                                                    placement='right'
-                                                    className={classes.iconStyle}
-                                                >
-                                                    <CopyToClipboard
-                                                        text={endpoint.defaultVersionURLs.https}
-                                                        onCopy={() => this.onCopy('urlCopied')}
+                                                <Grid item xs={12}>
+                                                    <TextField
+                                                        defaultValue={endpoint.defaultVersionURLs.https}
+                                                        id='bootstrap-input'
+                                                        InputProps={{
+                                                            disableUnderline: true,
+                                                            readOnly: true,
+                                                            classes: {
+                                                                root: classes.bootstrapRoot,
+                                                                input: classes.bootstrapInput,
+                                                            },
+                                                        }}
+                                                        InputLabelProps={{
+                                                            shrink: true,
+                                                            className: classes.bootstrapFormLabel,
+                                                        }}
+                                                    />
+                                                    <Tooltip
+                                                        title={
+                                                            urlCopied
+                                                                ? intl.formatMessage({
+                                                                    defaultMessage: 'Copied',
+                                                                    id: 'Apis.Details.Environments.copied',
+                                                                })
+                                                                : intl.formatMessage({
+                                                                    defaultMessage: 'Copy to clipboard',
+                                                                    id: 'Apis.Details.Environments.copy.to.clipboard',
+                                                                })
+                                                        }
+                                                        placement='right'
+                                                        className={classes.iconStyle}
                                                     >
-                                                        <Icon color='secondary'>file_copy</Icon>
-                                                    </CopyToClipboard>
-                                                </Tooltip>
-                                            </Grid>
-                                        )}
+                                                        <CopyToClipboard
+                                                            text={endpoint.defaultVersionURLs.https}
+                                                            onCopy={() => this.onCopy('urlCopied')}
+                                                        >
+                                                            <IconButton aria-label='Copy to clipboard'>
+                                                                <Icon color='secondary'>file_copy</Icon>
+                                                            </IconButton>
+                                                        </CopyToClipboard>
+                                                    </Tooltip>
+                                                </Grid>
+                                            )}
                                         {endpoint.defaultVersionURLs !== null &&
                                             endpoint.defaultVersionURLs.ws !== null && (
-                                            <Grid item xs={12}>
-                                                <TextField
-                                                    defaultValue={endpoint.defaultVersionURLs.ws}
-                                                    id='bootstrap-input'
-                                                    InputProps={{
-                                                        disableUnderline: true,
-                                                        readOnly: true,
-                                                        classes: {
-                                                            root: classes.bootstrapRoot,
-                                                            input: classes.bootstrapInput,
-                                                        },
-                                                    }}
-                                                    InputLabelProps={{
-                                                        shrink: true,
-                                                        className: classes.bootstrapFormLabel,
-                                                    }}
-                                                />
-                                                <Tooltip
-                                                    title={
-                                                        urlCopied
-                                                            ? intl.formatMessage({
-                                                                defaultMessage: 'Copied',
-                                                                id: 'Apis.Details.Environments.copied',
-                                                            })
-                                                            : intl.formatMessage({
-                                                                defaultMessage: 'Copy to clipboard',
-                                                                id: 'Apis.Details.Environments.copy.to.clipboard',
-                                                            })
-                                                    }
-                                                    placement='right'
-                                                    className={classes.iconStyle}
-                                                >
-                                                    <CopyToClipboard
-                                                        text={endpoint.defaultVersionURLs.ws}
-                                                        onCopy={() => this.onCopy('urlCopied')}
+                                                <Grid item xs={12}>
+                                                    <TextField
+                                                        defaultValue={endpoint.defaultVersionURLs.ws}
+                                                        id='bootstrap-input'
+                                                        InputProps={{
+                                                            disableUnderline: true,
+                                                            readOnly: true,
+                                                            classes: {
+                                                                root: classes.bootstrapRoot,
+                                                                input: classes.bootstrapInput,
+                                                            },
+                                                        }}
+                                                        InputLabelProps={{
+                                                            shrink: true,
+                                                            className: classes.bootstrapFormLabel,
+                                                        }}
+                                                    />
+                                                    <Tooltip
+                                                        title={
+                                                            urlCopied
+                                                                ? intl.formatMessage({
+                                                                    defaultMessage: 'Copied',
+                                                                    id: 'Apis.Details.Environments.copied',
+                                                                })
+                                                                : intl.formatMessage({
+                                                                    defaultMessage: 'Copy to clipboard',
+                                                                    id: 'Apis.Details.Environments.copy.to.clipboard',
+                                                                })
+                                                        }
+                                                        placement='right'
+                                                        className={classes.iconStyle}
                                                     >
-                                                        <Icon color='secondary'>file_copy</Icon>
-                                                    </CopyToClipboard>
-                                                </Tooltip>
-                                            </Grid>
-                                        )}
+                                                        <CopyToClipboard
+                                                            text={endpoint.defaultVersionURLs.ws}
+                                                            onCopy={() => this.onCopy('urlCopied')}
+                                                        >
+                                                            <IconButton aria-label='Copy to clipboard'>
+                                                                <Icon color='secondary'>file_copy</Icon>
+                                                            </IconButton>
+                                                        </CopyToClipboard>
+                                                    </Tooltip>
+                                                </Grid>
+                                            )}
                                         {endpoint.defaultVersionURLs !== null &&
                                             endpoint.defaultVersionURLs.wss !== null && (
-                                            <Grid item xs={12}>
-                                                <TextField
-                                                    defaultValue={endpoint.defaultVersionURLs.wss}
-                                                    id='bootstrap-input'
-                                                    InputProps={{
-                                                        disableUnderline: true,
-                                                        readOnly: true,
-                                                        classes: {
-                                                            root: classes.bootstrapRoot,
-                                                            input: classes.bootstrapInput,
-                                                        },
-                                                    }}
-                                                    InputLabelProps={{
-                                                        shrink: true,
-                                                        className: classes.bootstrapFormLabel,
-                                                    }}
-                                                />
-                                                <Tooltip
-                                                    title={
-                                                        urlCopied
-                                                            ? intl.formatMessage({
-                                                                defaultMessage: 'Copied',
-                                                                id: 'Apis.Details.Environments.copied',
-                                                            })
-                                                            : intl.formatMessage({
-                                                                defaultMessage: 'Copy to clipboard',
-                                                                id: 'Apis.Details.Environments.copy.to.clipboard',
-                                                            })
-                                                    }
-                                                    placement='right'
-                                                    className={classes.iconStyle}
-                                                >
-                                                    <CopyToClipboard
-                                                        text={endpoint.defaultVersionURLs.wss}
-                                                        onCopy={() => this.onCopy('urlCopied')}
+                                                <Grid item xs={12}>
+                                                    <TextField
+                                                        defaultValue={endpoint.defaultVersionURLs.wss}
+                                                        id='bootstrap-input'
+                                                        InputProps={{
+                                                            disableUnderline: true,
+                                                            readOnly: true,
+                                                            classes: {
+                                                                root: classes.bootstrapRoot,
+                                                                input: classes.bootstrapInput,
+                                                            },
+                                                        }}
+                                                        InputLabelProps={{
+                                                            shrink: true,
+                                                            className: classes.bootstrapFormLabel,
+                                                        }}
+                                                    />
+                                                    <Tooltip
+                                                        title={
+                                                            urlCopied
+                                                                ? intl.formatMessage({
+                                                                    defaultMessage: 'Copied',
+                                                                    id: 'Apis.Details.Environments.copied',
+                                                                })
+                                                                : intl.formatMessage({
+                                                                    defaultMessage: 'Copy to clipboard',
+                                                                    id: 'Apis.Details.Environments.copy.to.clipboard',
+                                                                })
+                                                        }
+                                                        placement='right'
+                                                        className={classes.iconStyle}
                                                     >
-                                                        <Icon color='secondary'>file_copy</Icon>
-                                                    </CopyToClipboard>
-                                                </Tooltip>
+                                                        <CopyToClipboard
+                                                            text={endpoint.defaultVersionURLs.wss}
+                                                            onCopy={() => this.onCopy('urlCopied')}
+                                                        >
+                                                            <IconButton aria-label='Copy to clipboard'>
+                                                                <Icon color='secondary'>file_copy</Icon>
+                                                            </IconButton>
+                                                        </CopyToClipboard>
+                                                    </Tooltip>
+                                                </Grid>
+                                            )}
+                                        {api.ingressURLs !== null && api.ingressURLs.length > 0 && (
+                                            <Typography className={classes.heading}>
+                                                <FormattedMessage
+                                                    id='Apis.Details.InfoBar.ingress.urls'
+                                                    defaultMessage='Kubernetes Access URLs'
+                                                />
+                                            </Typography>
+                                        )}
+                                        {api.ingressURLs && (
+                                            <Grid item xs={12}>
+                                                {api.ingressURLs.map((clusters, index) =>  (
+                                                        <Grid item xs={12} key={index}>
+                                                            {clusters.clusterDetails.map((cluster) => {
+                                                                return (
+                                                                    <Grid item xs={12}>
+                                                                        <Typography className={classes.heading}>
+                                                                            {cluster.clusterName}
+                                                                        </Typography>
+                                                                        <TextField
+                                                                            defaultValue={cluster.ingressURL}
+                                                                            id='bootstrap-input'
+                                                                            InputProps={{
+                                                                                disableUnderline: true,
+                                                                                readOnly: true,
+                                                                                classes: {
+                                                                                    root: classes.bootstrapRoot,
+                                                                                    input: classes.bootstrapInput,
+                                                                                },
+                                                                            }}
+                                                                            InputLabelProps={{
+                                                                                shrink: true,
+                                                                                className: classes.bootstrapFormLabel,
+                                                                            }}
+                                                                        />
+                                                                        <Tooltip
+                                                                            title={
+                                                                                urlCopied
+                                                                                    ? intl.formatMessage({
+                                                                                        defaultMessage: 'Copied',
+                                                                                        id: 'Apis.Details.Environments.copied',
+                                                                                    })
+                                                                                    : intl.formatMessage({
+                                                                                        defaultMessage: 'Copy to clipboard',
+                                                                                        id: 'Apis.Details.Environments.copy.to.clipboard',
+                                                                                    })
+                                                                            }
+                                                                            placement='right'
+                                                                            className={classes.iconStyle}
+                                                                        >
+                                                                            <CopyToClipboard
+                                                                                text={endpoint.defaultVersionURLs.ws}
+                                                                                onCopy={() => this.onCopy('urlCopied')}
+                                                                            >
+                                                                                <IconButton aria-label='Copy to clipboard'>
+                                                                                    <Icon color='secondary'>file_copy</Icon>
+                                                                                </IconButton>
+                                                                            </CopyToClipboard>
+                                                                        </Tooltip>
+                                                                    </Grid>
+                                                                );
+                                                            })}
+                                                        </Grid>
+                                                    )
+                                                )}
                                             </Grid>
                                         )}
                                         {api.type === 'SOAP' && (

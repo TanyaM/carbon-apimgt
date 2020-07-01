@@ -93,7 +93,7 @@ const styles = (theme) => ({
         marginLeft: theme.custom.tagCloud.leftMenu.width,
     },
     contentWithoutTags: {
-        marginLeft: 0,
+        marginLeft: -4,
     },
     contentWithTagsHidden: {
         marginLeft: theme.custom.tagCloud.leftMenu.sliderWidth,
@@ -141,7 +141,7 @@ const styles = (theme) => ({
         transformOrigin: 'left bottom 0',
         position: 'absolute',
         whiteSpace: 'nowrap',
-        top: theme.custom.infoBar.height * 2,
+        top: theme.custom.infoBar.height * 4,
         marginLeft: 23,
         cursor: 'pointer',
     },
@@ -172,8 +172,16 @@ class CommonListing extends React.Component {
      */
     constructor(props) {
         super(props);
+        let { defaultApiView } = props.theme.custom;
+        this.showToggle = true;
+        if(typeof defaultApiView === 'object' && defaultApiView.length > 0) {
+            if(defaultApiView.length === 1) { // We will disable the other
+                this.showToggle = false;
+            }
+            defaultApiView = defaultApiView[0];
+        }
         this.state = {
-            listType: props.theme.custom.defaultApiView,
+            listType: defaultApiView,
             allTags: null,
             showLeftMenu: false,
             isMonetizationEnabled: false,
@@ -300,7 +308,7 @@ class CommonListing extends React.Component {
                             <Icon>keyboard_arrow_right</Icon>
                         </div>
                         <div className={classes.rotatedText} onClick={this.toggleLeftMenu}>
-                            <FormattedMessage defaultMessage='Tag Cloud' id='Apis.Listing.Listing.ApiTagCloud.title' />
+                            <FormattedMessage defaultMessage='Tag Cloud / API Categories' id='Apis.Listing.Listing.ApiTagCloud.title' />
                         </div>
                     </div>
                 )}
@@ -323,8 +331,12 @@ class CommonListing extends React.Component {
                                 <FormattedMessage defaultMessage='APIs' id='Apis.Listing.Listing.apis.main' />
                             </Typography>
                         </div>
-                        <div className={classes.buttonRight} id='listGridWrapper'>
-                            <IconButton className={classes.button} onClick={() => this.setListType('list')}>
+                        {this.showToggle && (<div className={classes.buttonRight} id='listGridWrapper'>
+                            <IconButton
+                                aria-label='List View'
+                                className={classes.button}
+                                onClick={() => this.setListType('list')}
+                            >
                                 <Icon
                                     className={classNames(
                                         { [classes.iconSelected]: listType === 'list' },
@@ -334,7 +346,11 @@ class CommonListing extends React.Component {
                                     list
                                 </Icon>
                             </IconButton>
-                            <IconButton className={classes.button} onClick={() => this.setListType('grid')}>
+                            <IconButton
+                                aria-label='Grid view'
+                                className={classes.button}
+                                onClick={() => this.setListType('grid')}
+                            >
                                 <Icon
                                     className={classNames(
                                         { [classes.iconSelected]: listType === 'grid' },
@@ -344,7 +360,7 @@ class CommonListing extends React.Component {
                                     grid_on
                                 </Icon>
                             </IconButton>
-                        </div>
+                        </div>)}
                     </div>
                     {active && allTags && allTags.length > 0 && <ApiBreadcrumbs selectedTag={selectedTag} />}
                     <div className={classes.listContentWrapper}>

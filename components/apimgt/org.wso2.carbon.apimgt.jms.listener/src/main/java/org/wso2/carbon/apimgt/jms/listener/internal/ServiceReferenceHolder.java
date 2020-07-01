@@ -20,11 +20,10 @@
 
 package org.wso2.carbon.apimgt.jms.listener.internal;
 
-import org.wso2.carbon.apimgt.gateway.service.APIThrottleDataService;
-import org.wso2.carbon.apimgt.gateway.service.CacheInvalidationService;
-import org.wso2.carbon.apimgt.gateway.throttling.ThrottleDataHolder;
 import org.wso2.carbon.apimgt.impl.APIManagerConfiguration;
 import org.wso2.carbon.apimgt.impl.APIManagerConfigurationService;
+import org.wso2.carbon.apimgt.impl.keymgt.KeyManagerConfigurationService;
+import org.wso2.carbon.apimgt.impl.keymgt.KeyManagerDataService;
 
 /**
  * Class for keeping service references.
@@ -33,10 +32,8 @@ public class ServiceReferenceHolder {
 
     private static ServiceReferenceHolder instance = new ServiceReferenceHolder();
 
-    private APIThrottleDataService throttleDataService;
-    private ThrottleDataHolder throttleDataHolder;
     private APIManagerConfiguration apimConfiguration;
-    private CacheInvalidationService cacheInvalidationService;
+    private KeyManagerConfigurationService keyManagerService;
 
     public static ServiceReferenceHolder getInstance() {
         return instance;
@@ -45,19 +42,6 @@ public class ServiceReferenceHolder {
     private ServiceReferenceHolder() {
     }
 
-    public void setAPIThrottleDataService(APIThrottleDataService dataService) {
-        if (dataService != null) {
-            throttleDataService = dataService;
-            throttleDataHolder = dataService.getThrottleDataHolder();
-        } else {
-            throttleDataHolder = null;
-            throttleDataService = null;
-        }
-    }
-
-    public APIThrottleDataService getAPIThrottleDataService() {
-        return throttleDataService;
-    }
 
     public APIManagerConfiguration getAPIMConfiguration() {
         return apimConfiguration;
@@ -72,17 +56,15 @@ public class ServiceReferenceHolder {
 
     }
 
-    public ThrottleDataHolder getThrottleDataHolder() {
-        return throttleDataHolder;
+
+
+    public void setKeyManagerService(KeyManagerConfigurationService keyManagerService) {
+        this.keyManagerService = keyManagerService;
     }
 
-    public void setCacheInvalidationService(CacheInvalidationService cacheInvalidationService) {
-        this.cacheInvalidationService = cacheInvalidationService;
+    public KeyManagerConfigurationService getKeyManagerService() {
 
+        return keyManagerService;
     }
 
-    public CacheInvalidationService getCacheInvalidationService() {
-
-        return cacheInvalidationService;
-    }
 }

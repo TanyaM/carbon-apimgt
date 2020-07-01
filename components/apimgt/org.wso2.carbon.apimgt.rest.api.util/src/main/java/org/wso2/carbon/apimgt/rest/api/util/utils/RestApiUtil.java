@@ -38,6 +38,7 @@ import org.wso2.carbon.apimgt.api.APIProvider;
 import org.wso2.carbon.apimgt.api.ApplicationNameWhiteSpaceValidationException;
 import org.wso2.carbon.apimgt.api.ApplicationNameWithInvalidCharactersException;
 import org.wso2.carbon.apimgt.api.ErrorHandler;
+import org.wso2.carbon.apimgt.api.ExceptionCodes;
 import org.wso2.carbon.apimgt.api.model.API;
 import org.wso2.carbon.apimgt.api.model.APIIdentifier;
 import org.wso2.carbon.apimgt.api.model.DuplicateAPIException;
@@ -45,6 +46,7 @@ import org.wso2.carbon.apimgt.api.model.KeyManager;
 import org.wso2.carbon.apimgt.api.model.OAuthAppRequest;
 import org.wso2.carbon.apimgt.api.model.OAuthApplicationInfo;
 import org.wso2.carbon.apimgt.api.model.ResourceFile;
+import org.wso2.carbon.apimgt.api.model.Scope;
 import org.wso2.carbon.apimgt.api.model.Tier;
 import org.wso2.carbon.apimgt.api.model.URITemplate;
 import org.wso2.carbon.apimgt.impl.AMDefaultKeyManagerImpl;
@@ -1169,6 +1171,21 @@ public class RestApiUtil {
         return paginatedURL;
     }
 
+    /**
+     * Returns the paginated URL for scopes.
+     *
+     * @param offset starting index
+     * @param limit  max number of objects returned
+     * @return constructed paginated url
+     */
+    public static String getScopesPaginatedURL(Integer offset, Integer limit) {
+
+        String paginatedURL = RestApiConstants.SCOPES_GET_PAGINATION_URL;
+        paginatedURL = paginatedURL.replace(RestApiConstants.LIMIT_PARAM, String.valueOf(limit));
+        paginatedURL = paginatedURL.replace(RestApiConstants.OFFSET_PARAM, String.valueOf(offset));
+        return paginatedURL;
+    }
+
     /** Returns the paginated url for tags
      *
      * @param offset starting index
@@ -1251,62 +1268,6 @@ public class RestApiUtil {
         return null;
     }
 
-    /**
-     * Following 3 methods are temporary added to rest API Util
-     * Ideally they should move to DCR, RR and Introspection API implementation
-     *
-     * @param api
-     * @param swagger
-     * @return
-     */
-    public static boolean registerResource(API api, String swagger) {
-
-        APIDefinition oasParser;
-        try {
-            oasParser = OASParserUtil.getOASParser(swagger);
-        } catch (APIManagementException e) {
-            log.error("Error occurred while parsing swagger definition");
-            return false;
-        }
-
-
-        Set<URITemplate> uriTemplates = null;
-        try {
-            uriTemplates = oasParser.getURITemplates(swagger);
-        } catch (APIManagementException e) {
-            log.error("Error while parsing swagger content to get URI Templates", e);
-        }
-        api.setUriTemplates(uriTemplates);
-        KeyManager keyManager = KeyManagerHolder.getKeyManagerInstance();
-        Map registeredResource = null;
-        try {
-            registeredResource = keyManager.getResourceByApiId(api.getId().toString());
-        } catch (APIManagementException e) {
-            log.error("Error while getting registered resources for API: " + api.getId().toString(), e);
-        }
-        //Add new resource if not exist
-        if (registeredResource == null) {
-            boolean isNewResourceRegistered = false;
-            try {
-                isNewResourceRegistered = keyManager.registerNewResource(api, null);
-            } catch (APIManagementException e) {
-                log.error("Error while registering new resource for API: " + api.getId().toString(), e);
-            }
-            if (!isNewResourceRegistered) {
-                log.error("New resource not registered for API: " + api.getId());
-            }
-        }
-        //update existing resource
-        else {
-            try {
-                keyManager.updateRegisteredResource(api, registeredResource);
-            } catch (APIManagementException e) {
-                log.error("Error while updating resource", e);
-            }
-        }
-        return true;
-    }
-
     public static OAuthApplicationInfo registerOAuthApplication(OAuthAppRequest appRequest) {
         //Create Oauth Application - Dynamic client registration service
         AMDefaultKeyManagerImpl impl = new AMDefaultKeyManagerImpl();
@@ -1316,18 +1277,6 @@ public class RestApiUtil {
         } catch (APIManagementException e) {
             log.error("Cannot create OAuth application from provided information, for APP name: " +
                     appRequest.getOAuthApplicationInfo().getClientName(), e);
-        }
-        return returnedAPP;
-    }
-
-    public static OAuthApplicationInfo retrieveOAuthApplication(String consumerKey) {
-        //Create Oauth Application - Dynamic client registration service
-        AMDefaultKeyManagerImpl impl = new AMDefaultKeyManagerImpl();
-        OAuthApplicationInfo returnedAPP = null;
-        try {
-            returnedAPP = impl.retrieveApplication(consumerKey);
-        } catch (APIManagementException e) {
-            log.error("Error while retrieving OAuth application information for Consumer Key: " + consumerKey, e);
         }
         return returnedAPP;
     }
@@ -1412,17 +1361,23 @@ public class RestApiUtil {
      *
      * @return URITemplate set associated with API Manager Admin REST API
      */
-    public static Set<URITemplate> getAdminAPIAppResourceMapping() {
+    public static Set<URITemplate> getAdminAPIAppResourceMapping(String version) {
 
         API api = new API(new APIIdentifier(RestApiConstants.REST_API_PROVIDER, RestApiConstants.REST_API_ADMIN_CONTEXT,
-                RestApiConstants.REST_API_ADMIN_VERSION));
+                RestApiConstants.REST_API_ADMIN_VERSION_0));
 
         if (adminAPIResourceMappings != null) {
             return adminAPIResourceMappings;
         } else {
             try {
-                String definition = IOUtils
-                        .toString(RestApiUtil.class.getResourceAsStream("/admin-api.json"), "UTF-8");
+                String definition;
+                if (RestApiConstants.REST_API_ADMIN_VERSION_0.equals(version)) {
+                    definition = IOUtils
+                            .toString(RestApiUtil.class.getResourceAsStream("/admin-api.json"), "UTF-8");
+                } else {
+                    definition = IOUtils
+                            .toString(RestApiUtil.class.getResourceAsStream("/admin-api.yaml"), "UTF-8");
+                }
                 APIDefinition oasParser = OASParserUtil.getOASParser(definition);
                 //Get URL templates from swagger content we created
                 adminAPIResourceMappings = oasParser.getURITemplates(definition);
@@ -1667,9 +1622,41 @@ public class RestApiUtil {
             uriTemplates = RestApiUtil.getStoreAppResourceMapping(RestApiConstants.REST_API_STORE_VERSION_0);
         } else if (basePath.contains(RestApiConstants.REST_API_STORE_CONTEXT_FULL_1)) {
             uriTemplates = RestApiUtil.getStoreAppResourceMapping(RestApiConstants.REST_API_STORE_VERSION_1);
-        } else if (basePath.contains(RestApiConstants.REST_API_ADMIN_CONTEXT)) {
-            uriTemplates = RestApiUtil.getAdminAPIAppResourceMapping();
+        } else if (basePath.contains(RestApiConstants.REST_API_ADMIN_CONTEXT_FULL_0)) {
+            uriTemplates = RestApiUtil.getAdminAPIAppResourceMapping(RestApiConstants.REST_API_ADMIN_VERSION_0);
+        } else if (basePath.contains(RestApiConstants.REST_API_ADMIN_CONTEXT_FULL_1)) {
+            uriTemplates = RestApiUtil.getAdminAPIAppResourceMapping(RestApiConstants.REST_API_ADMIN_VERSION_1);
         }
         return uriTemplates;
+    }
+
+    /**
+     * This method is used to get the scope list from the yaml file
+     *
+     * @return MAP of scope list for all portal
+     */
+    public static  Map<String, List<String>> getScopesInfoFromAPIYamlDefinitions() throws APIManagementException {
+
+        Map<String, List<String>>   portalScopeList = new HashMap<>();
+        String [] fileNameArray = {"/admin-api.yaml", "/publisher-api.yaml", "/store-api.yaml"};
+        for (String fileName : fileNameArray) {
+            String definition = null;
+            try {
+                definition = IOUtils
+                        .toString(RestApiUtil.class.getResourceAsStream(fileName), "UTF-8");
+            } catch (IOException  e) {
+                throw new APIManagementException("Error while reading the swagger definition ,",
+                        ExceptionCodes.DEFINITION_EXCEPTION);
+            }
+            APIDefinition oasParser = OASParserUtil.getOASParser(definition);
+            Set<Scope> scopeSet = oasParser.getScopes(definition);
+            for (Scope entry : scopeSet) {
+                List <String> list = new ArrayList<>();
+                list.add(entry.getDescription());
+                list.add((fileName.replaceAll("-api.yaml", "").replace("/","")));
+                portalScopeList.put(entry.getName(), list);
+            }
+        }
+        return portalScopeList;
     }
 }

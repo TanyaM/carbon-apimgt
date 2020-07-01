@@ -14,33 +14,24 @@
  * limitations under the License.
  */
 
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Collapse,
     ExpansionPanel,
     ExpansionPanelDetails,
     ExpansionPanelSummary,
-    FormControlLabel,
     Grid,
-    Switch,
     Typography,
     withStyles,
 } from '@material-ui/core';
 import PropTypes from 'prop-types';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import { FormattedMessage, injectIntl } from 'react-intl';
-import { isRestricted } from 'AppData/AuthManager';
-import APIContext from 'AppComponents/Apis/Details/components/ApiContext';
-import EndpointSecurity from './GeneralConfiguration/EndpointSecurity';
 import Certificates from './GeneralConfiguration/Certificates';
 import API from '../../../../data/api'; // TODO: Use webpack aliases instead of relative paths ~tmkb
 import Alert from '../../../Shared/Alert';
 import { endpointsToList } from './endpointUtils';
 
 const styles = (theme) => ({
-    endpointTypeSelect: {
-        width: '50%',
-    },
     configHeaderContainer: {
         display: 'flex',
         justifyContent: 'space-between',
@@ -68,6 +59,9 @@ const styles = (theme) => ({
     securityHeading: {
         fontWeight: 600,
     },
+    sandboxEndpointSwitch: {
+        marginLeft: theme.spacing(2),
+    },
 });
 
 /**
@@ -80,15 +74,11 @@ function GeneralConfiguration(props) {
     const {
         intl,
         epConfig,
-        endpointSecurityInfo,
-        handleToggleEndpointSecurity,
-        handleEndpointSecurityChange,
         endpointType,
         classes,
     } = props;
     const [isConfigExpanded, setConfigExpand] = useState(false);
     const [endpointCertificates, setEndpointCertificates] = useState([]);
-    const { api } = useContext(APIContext);
     const [aliasList, setAliasList] = useState([]);
 
     /**
@@ -196,25 +186,6 @@ function GeneralConfiguration(props) {
                     id='panel1bh-header'
                     className={classes.configHeaderContainer}
                 >
-                    {endpointType.key === 'awslambda'
-                        ? (<div />)
-                        : (
-                            <Typography
-                                className={classes.secondaryHeading}
-                                hidden={
-                                    endpointType.key === 'default'
-                                    || endpointType.key === 'awslambda'
-                                }
-                            >
-                                <FormattedMessage
-                                    id='Apis.Details.Endpoints.GeneralConfiguration.endpoint.security.sub.heading'
-                                    defaultMessage='Endpoint Security'
-                                />
-                                {' '}
-:
-                                {endpointSecurityInfo !== null ? endpointSecurityInfo.type : 'NONE'}
-                            </Typography>
-                        )}
                     {endpointType.key === 'default' || endpointType.key === 'awslambda' ? (
                         <div />
                     ) : (
@@ -222,7 +193,6 @@ function GeneralConfiguration(props) {
                             className={classes.secondaryHeading}
                             hidden={endpointType.key === 'default' || endpointType.key === 'awslambda'}
                         >
-                             |
                             <FormattedMessage
                                 id='Apis.Details.Endpoints.GeneralConfiguration.certificates.sub.heading'
                                 defaultMessage='Certificates'
@@ -234,67 +204,18 @@ function GeneralConfiguration(props) {
                     )}
                 </ExpansionPanelSummary>
                 <ExpansionPanelDetails className={classes.generalConfigContent}>
-                    <Grid container direction='row' xs={12}>
-                        {endpointType.key === 'awslambda' ? (
-                            <div />
-                        ) : (
-                            <Grid container item xs={6}>
-                                {endpointType.key === 'awslambda' ? (
-                                    <div />
-                                ) : (
-                                    <Grid
-                                        item
-                                        xs
-                                        className={classes.endpointConfigSection}
-                                        hidden={endpointType.key === 'awslambda'}
-                                    >
-                                        <FormControlLabel
-                                            value='start'
-                                            checked={endpointSecurityInfo !== null}
-                                            control={(
-                                                <Switch
-                                                    color='primary'
-                                                    disabled={isRestricted(['apim:api_create'], api)}
-                                                />
-                                            )}
-                                            label={(
-                                                <Typography className={classes.securityHeading}>
-                                                    <FormattedMessage
-                                                        id={
-                                                            'Apis.Details.Endpoints.EndpointOverview.'
-                                                            + 'endpoint.security.enable.switch'
-                                                        }
-                                                        defaultMessage='Endpoint Security'
-                                                    />
-                                                </Typography>
-                                            )}
-                                            labelPlacement='start'
-                                            onChange={handleToggleEndpointSecurity}
-                                        />
-                                        <Collapse in={endpointSecurityInfo !== null}>
-                                            <EndpointSecurity
-                                                securityInfo={endpointSecurityInfo}
-                                                onChangeEndpointAuth={handleEndpointSecurityChange}
-                                            />
-                                        </Collapse>
-                                    </Grid>
-                                )}
-                            </Grid>
-                        )}
-                        <Grid
-                            item
-                            xs={6}
-                            className={classes.endpointConfigSection}
-                            hidden={endpointType.key === 'default' || endpointType.key === 'awslambda'}
-                        >
-                            <Certificates
-                                endpoints={endpointsToList(epConfig)}
-                                certificates={endpointCertificates}
-                                uploadCertificate={saveCertificate}
-                                deleteCertificate={deleteCertificate}
-                                aliasList={aliasList}
-                            />
-                        </Grid>
+                    <Grid
+                        container
+                        className={classes.endpointConfigSection}
+                        hidden={endpointType.key === 'default' || endpointType.key === 'awslambda'}
+                    >
+                        <Certificates
+                            endpoints={endpointsToList(epConfig)}
+                            certificates={endpointCertificates}
+                            uploadCertificate={saveCertificate}
+                            deleteCertificate={deleteCertificate}
+                            aliasList={aliasList}
+                        />
                     </Grid>
                 </ExpansionPanelDetails>
             </ExpansionPanel>
@@ -304,9 +225,6 @@ function GeneralConfiguration(props) {
 
 GeneralConfiguration.propTypes = {
     epConfig: PropTypes.shape({}).isRequired,
-    endpointSecurityInfo: PropTypes.shape({}).isRequired,
-    handleToggleEndpointSecurity: PropTypes.func.isRequired,
-    handleEndpointSecurityChange: PropTypes.func.isRequired,
     endpointType: PropTypes.shape({}).isRequired,
     classes: PropTypes.shape({}).isRequired,
     intl: PropTypes.shape({}).isRequired,

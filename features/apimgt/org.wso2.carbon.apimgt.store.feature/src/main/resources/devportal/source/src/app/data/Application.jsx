@@ -31,8 +31,10 @@ export default class Application extends Resource {
         super();
         this.id = kwargs ? kwargs.applicationId : null;
         this.client = new APIClientFactory().getAPIClient(Utils.getEnvironment().label).client;
-        this.keys = new Map();
-        this.tokens = new Map();
+        this.productionKeys = new Map();
+        this.sandboxKeys = new Map();
+        this.productionTokens = new Map();
+        this.sandboxTokens = new Map();
         for (const key in kwargs) {
             if (kwargs.hasOwnProperty(key)) {
                 if (key === 'keys') {
@@ -51,7 +53,11 @@ export default class Application extends Resource {
      */
     _setKeys(keys) {
         for (const keyObj of keys) {
-            this.keys.set(keyObj.keyType, keyObj);
+            if (keyObj.keyType === 'PRODUCTION') {
+                this.productionKeys.set(keyObj.keyManager, keyObj);
+            } else {
+                this.sandboxKeys.set(keyObj.keyManager, keyObj);
+            }
         }
     }
 
@@ -62,7 +68,11 @@ export default class Application extends Resource {
      */
     _setTokens(keys) {
         for (const keyObj of keys) {
-            this.tokens.set(keyObj.keyType, keyObj.token);
+            if (keyObj.keyType === 'PRODUCTION') {
+                this.productionTokens.set(keyObj.keyManager, keyObj.token);
+            } else {
+                this.sandboxTokens.set(keyObj.keyManager, keyObj.token);
+            }
         }
     }
 
@@ -73,12 +83,16 @@ export default class Application extends Resource {
      */
     getKeys(keyType) {
         return this.client.then((client) => client.apis['Application Keys']
-            .get_applications__applicationId__keys({ applicationId: this.applicationId }))
+            .get_applications__applicationId__oauth_keys({ applicationId: this.applicationId }))
             .then((keysResponse) => {
                 const keys = keysResponse.obj.list;
                 this._setKeys(keys);
                 this._setTokens(keys);
-                return this.keys;
+                if (keyType === 'PRODUCTION'){
+                    return this.productionKeys;
+                } else {
+                    return this.sandboxKeys;
+                }         
             });
     }
 
@@ -90,26 +104,41 @@ export default class Application extends Resource {
      * @returns {promise} Set the generated token into current
      * instance and return tokenObject received as Promise object
      */
-    generateToken(type, validityPeriod, selectedScopes) {
+    generateToken(selectedTab, type, validityPeriod, selectedScopes) {
         const promiseToken = this.getKeys()
             .then(() => this.client)
             .then((client) => {
-                const keys = this.keys.get(type);
-                const accessToken = this.tokens.get(type);
+                let keys;
+                if (type === 'PRODUCTION') {
+                    keys = this.productionKeys.get(selectedTab); 
+                } else {
+                    keys = this.sandboxKeys.get(selectedTab); 
+                }
+                const keyMappingId = keys.keyMappingId;
+                let accessToken;
+                if (type === 'PRODUCTION') {
+                    accessToken = this.productionTokens.get(selectedTab); 
+                } else {
+                    accessToken = this.sandboxTokens.get(selectedTab); 
+                }
                 const requestContent = {
                     consumerSecret: keys.consumerSecret,
                     validityPeriod,
                     revokeToken: accessToken.accessToken,
                     scopes: selectedScopes,
-                    additionalProperties: '',
+                    additionalProperties: keys.additionalProperties,
                 };
-                const payload = { applicationId: this.id, keyType: type, body: requestContent };
+                const payload = { applicationId: this.id, keyMappingId: keyMappingId, body: requestContent };
                 return client.apis['Application Tokens']
-                    .post_applications__applicationId__keys__keyType__generate_token(payload);
+                    .post_applications__applicationId__oauth_keys__keyMappingId__generate_token(payload);
             });
         return promiseToken.then((tokenResponse) => {
             const token = tokenResponse.obj;
-            this.tokens.set(type, token);
+            if (type === 'PRODUCTION') {
+                this.productionTokens.set(selectedTab, token);
+            } else {
+                this.sandboxTokens.set(selectedTab, token);
+            }
             return token;
         });
     }
@@ -124,21 +153,27 @@ export default class Application extends Resource {
      * @returns {promise} Set the generated token into current instance and return tokenObject
      * received as Promise object
      */
-    generateKeys(keyType, supportedGrantTypes, callbackUrl, validityTime, additionalProperties) {
+    generateKeys(keyType, supportedGrantTypes, callbackUrl, validityTime, additionalProperties, keyManager) {
         const promisedKeys = this.client.then((client) => {
             const requestContent = {
                 keyType, /* TODO: need to support dynamic key types ~tmkb */
                 grantTypesToBeSupported: supportedGrantTypes,
                 callbackUrl,
                 validityTime,
-                additionalProperties
+                additionalProperties,
+                keyManager,
             };
             const payload = { applicationId: this.id, body: requestContent };
             return client.apis['Application Keys'].post_applications__applicationId__generate_keys(payload);
         });
         return promisedKeys.then((keysResponse) => {
-            this.keys.set(keyType, keysResponse.obj);
-            return this.keys.get(keyType);
+            if (keyType === 'PRODUCTION') {
+                this.productionKeys.set(keyManager, keysResponse.obj);
+                return this.productionKeys.get(keyManager);
+            } else {
+                this.sandboxKeys.set(keyManager, keysResponse.obj);
+                return this.sandboxKeys.get(keyManager);
+            }
         });
     }
 
@@ -148,12 +183,21 @@ export default class Application extends Resource {
      * @returns {promise} Set the generated token into current instance and return tokenObject
      * received as Promise object
      */
-    cleanUpKeys(keyType) {
+    cleanUpKeys(keyType, keyManager, keyMappingId) {
+        const requestContent = {
+            keyType, 
+            keyMappingId,
+            keyManager,
+        };
+        const payload = { applicationId: this.id, keyMappingId, body: requestContent };
         return this.client.then((client) => client.apis['Application Keys']
-            .post_applications__applicationId__keys__keyType__clean_up({ applicationId: this.id, keyType }))
+            .post_applications__applicationId__oauth_keys__keyMappingId__clean_up(payload))
             .then((response) => {
-                this.keys = new Map();
-                this.tokens = new Map();
+                if (keyType === 'PRODUCTION') {
+                    this.productionKeys = new Map();
+                } else {
+                    this.sandboxKeys = new Map();
+                }
                 return response.ok;
             });
     }
@@ -169,9 +213,11 @@ export default class Application extends Resource {
      * @param  {String} additionalProperties Additional properties for the oauth application
      * @returns {promise} Update the callbackURL and/or supportedGrantTypes
      */
-    updateKeys(tokenType, keyType, supportedGrantTypes, callbackUrl, consumerKey, consumerSecret, additionalProperties) {
+    updateKeys(tokenType, keyType, supportedGrantTypes, callbackUrl, consumerKey, consumerSecret, additionalProperties, keyManager, keyMappingId) {
         const promisedPut = this.client.then((client) => {
             const requestContent = {
+                keyManager,
+                keyMappingId,
                 consumerKey,
                 consumerSecret,
                 supportedGrantTypes,
@@ -180,12 +226,17 @@ export default class Application extends Resource {
                 tokenType,
                 additionalProperties
             };
-            const payload = { applicationId: this.id, keyType, body: requestContent };
-            return client.apis['Application Keys'].put_applications__applicationId__keys__keyType_(payload);
+            const payload = { applicationId: this.id, keyMappingId, body: requestContent };
+            return client.apis['Application Keys'].put_applications__applicationId__oauth_keys__keyMappingId_(payload);
         });
         return promisedPut.then((keysResponse) => {
-            this.keys.set(keyType, keysResponse.obj);
-            return this;
+            if (keyType === 'PRODUCTION') {
+                this.productionKeys.set(keyManager, keysResponse.obj);
+                return this.productionKeys.get(keyManager);
+            } else {
+                this.sandboxKeys.set(keyManager, keysResponse.obj);
+                return this.sandboxKeys.get(keyManager);
+            }
         });
     }
 
@@ -195,15 +246,25 @@ export default class Application extends Resource {
      * @param {string} keyType Key type either `Production` or `SandBox`
      * @returns {promise} Update the consumerSecret
      */
-    regenerateSecret(consumerKey, keyType) {
+    regenerateSecret(consumerKey, keyType, keyMappingId, keyManager) {
+        const requestContent = {
+            keyManager,
+            keyMappingId,
+            consumerKey,
+            keyType,
+        };
         const promisedPost = this.client.then((client) => {
-            const payload = { applicationId: this.id, keyType, body: consumerKey };
+            const payload = { applicationId: this.id, keyMappingId, body: requestContent };
             return client.apis['Application Keys']
-                .post_applications__applicationId__keys__keyType__regenerate_secret(payload);
+                .post_applications__applicationId__oauth_keys__keyMappingId__regenerate_secret(payload);
         });
         return promisedPost.then((secretResponse) => {
             const secret = secretResponse.obj;
-            this.keys.set(keyType, secretResponse.obj);
+            if (keyType === 'PRODUCTION') {
+                this.productionKeys.set(keyManager, secretResponse.obj);
+            } else {
+                this.sandboxKeys.set(keyManager, secretResponse.obj);
+            }
             return secret;
         });
     }
@@ -216,15 +277,20 @@ export default class Application extends Resource {
      * @param consumerSecret    consumer secret of the OAuth app
      * @returns {*}
      */
-    provideKeys(keyType, consumerKey, consumerSecret) {
+    provideKeys(keyType, consumerKey, consumerSecret, keyManager, keyMappingId) {
         const promisedKeys = this.client.then((client) => {
-            const requestContent = { consumerKey, consumerSecret, keyType };
+            const requestContent = { consumerKey, consumerSecret, keyType, keyManager, keyMappingId };
             const payload = { applicationId: this.id, body: requestContent };
             return client.apis['Application Keys'].post_applications__applicationId__map_keys(payload);
         });
         return promisedKeys.then((keysResponse) => {
-            this.keys.set(keyType, keysResponse.obj);
-            return this.keys.get(keyType);
+            if (keyType === 'PRODUCTION') {
+                this.productionKeys.set(keyManager, keysResponse.obj);
+                return this.productionKeys.get(KeyManager);
+            } else {
+                this.sandboxKeys.set(keyManager, keysResponse.obj);
+                return this.sandboxKeys.get(KeyManager);
+            }
         });
     }
 
@@ -242,11 +308,11 @@ export default class Application extends Resource {
         });
     }
 
-    static all(limit = 3, offset = null, sortOrder = 'asc', sortBy = 'name') {
+    static all(limit = 3, offset = null, sortOrder = 'asc', sortBy = 'name', query = '') {
         const apiClient = new APIClientFactory().getAPIClient(Utils.getEnvironment());
         const promisedAll = apiClient.client.then((client) => {
             return client.apis.Applications.get_applications({
-                limit, offset, sortOrder, sortBy,
+                limit, offset, sortOrder, sortBy, query,
             }, this._requestMetaData());
         });
         return promisedAll.then((response) => response.obj);
